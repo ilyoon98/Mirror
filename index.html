@@ -5,187 +5,280 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>MIRROR RUSH — 거울 방 레이저</title>
 <style>
+  /* ============================================================
+     색상은 WCAG 1.4.3(텍스트 4.5:1) / 1.4.11(비텍스트 3:1)을
+     배경 #070710~#16183a 기준으로 계산해 맞춘 값입니다.
+     ============================================================ */
   :root{
     --bg:#070710;
     --panel:#0e0f1d;
-    --line:#1f2340;
-    --cyan:#3df0ff;
-    --pink:#ff3d8b;
-    --gold:#ffd23d;
-    --green:#3dff9e;
-    --dim:#6b7299;
+    --line:#565f96;        /* 셀·패널 테두리: 배경 대비 3.0:1 */
+    --line-soft:#3a4272;
+    --cyan:#3df0ff;        /* 12.2:1 */
+    --pink:#ff6ba6;        /* 7.4:1 */
+    --gold:#ffd23d;        /* 11.9:1 */
+    --green:#5cffae;       /* 13.5:1 */
+    --dim:#8b93bd;         /* 5.7:1 — 보조 텍스트 */
+    --ink:#e8ecff;
+    --focus:#ffffff;
+    --fever:#ffb03d;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html{font-size:100%}
   html,body{margin:0}
   body{
     background:
       radial-gradient(1000px 600px at 50% -10%, #16183a 0%, transparent 60%),
       var(--bg);
     background-attachment:fixed;
-    color:#e8ecff;
+    color:var(--ink);
     font-family:"Segoe UI", system-ui, -apple-system, "Malgun Gothic", sans-serif;
     display:flex; flex-direction:column; align-items:center;
     min-height:100vh; min-height:100dvh;
-    padding:calc(14px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right))
-            calc(24px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left));
-    gap:12px;
+    padding:calc(.75rem + env(safe-area-inset-top)) calc(.75rem + env(safe-area-inset-right))
+            calc(1rem + env(safe-area-inset-bottom)) calc(.75rem + env(safe-area-inset-left));
+    gap:.6rem;
     overflow-x:hidden;
+    line-height:1.55;
+  }
+
+  /* 2.4.7 포커스 표시 — 어디에서도 명확히 보이는 흰색 아웃라인 */
+  :focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+  .btn:focus-visible,.ctl:focus-visible{outline:3px solid var(--focus);outline-offset:3px}
+  #svg:focus-visible{outline:3px solid var(--focus);outline-offset:4px;border-radius:10px}
+
+  /* 스크린리더 전용 */
+  .sr-only{
+    position:absolute;width:1px;height:1px;padding:0;margin:-1px;
+    overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;
   }
 
   /* ---------- HUD ---------- */
-  .wrap{width:100%;max-width:470px;display:flex;flex-direction:column;gap:10px}
+  .wrap{width:100%;max-width:29.375rem;display:flex;flex-direction:column;gap:.55rem}
   .title{
-    display:flex;align-items:baseline;justify-content:space-between;
-    letter-spacing:.18em;font-size:13px;color:var(--dim);
+    display:flex;align-items:baseline;justify-content:space-between;gap:.5rem;
+    letter-spacing:.18em;font-size:.8125rem;color:var(--dim);
   }
-  .title b{color:var(--cyan);font-size:15px;letter-spacing:.24em;text-shadow:0 0 14px rgba(61,240,255,.55)}
-  .hud{
-    display:grid;grid-template-columns:repeat(4,1fr);gap:8px;
-  }
+  .title b{color:var(--cyan);font-size:.9375rem;letter-spacing:.24em;text-shadow:0 0 14px rgba(61,240,255,.55)}
+  .hud{display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem}
   .stat{
     background:linear-gradient(180deg,#12142a,#0c0d1c);
-    border:1px solid var(--line);border-radius:10px;padding:7px 8px;text-align:center;
+    border:1px solid var(--line);border-radius:.625rem;padding:.4rem .5rem;text-align:center;
   }
-  .stat .k{font-size:9px;letter-spacing:.16em;color:var(--dim)}
-  .stat .v{font-size:19px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.25}
+  .stat .k{font-size:.6875rem;letter-spacing:.14em;color:var(--dim)}
+  .stat .v{font-size:1.1875rem;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.25}
   .v.score{color:var(--gold)}
   .v.combo{color:var(--pink)}
   .v.life{color:var(--green);letter-spacing:1px}
 
-  .timebar{height:7px;background:#14162c;border-radius:99px;overflow:hidden;border:1px solid var(--line)}
-  .timebar i{display:block;height:100%;width:100%;background:linear-gradient(90deg,var(--cyan),var(--green));
-    transform-origin:left;border-radius:99px;transition:background .2s}
-  .timebar.warn i{background:linear-gradient(90deg,var(--gold),var(--pink))}
+  .timebar{
+    position:relative;height:.75rem;background:#14162c;border-radius:99px;
+    overflow:hidden;border:1px solid var(--line);
+  }
+  .timebar i{
+    display:block;height:100%;width:100%;
+    background:linear-gradient(90deg,var(--cyan),var(--green));
+    transform-origin:left;border-radius:99px;
+  }
+  /* 1.4.1 색에 의존하지 않기 — 경고 상태는 색 + 사선 패턴 + 텍스트로 알림 */
+  .timebar.warn i{
+    background:
+      repeating-linear-gradient(45deg,rgba(0,0,0,.34) 0 6px,transparent 6px 12px),
+      linear-gradient(90deg,var(--gold),var(--pink));
+  }
+  .timebar.fever i{
+    background:
+      repeating-linear-gradient(45deg,rgba(255,255,255,.28) 0 8px,transparent 8px 16px),
+      linear-gradient(90deg,var(--fever),var(--gold));
+  }
+  .timebar .tlabel{
+    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    font-size:.625rem;font-weight:700;letter-spacing:.12em;color:#0b0c18;
+    text-shadow:0 0 3px rgba(255,255,255,.7);pointer-events:none;
+  }
 
   .goal{
-    display:flex;justify-content:space-between;align-items:center;gap:10px;
-    font-size:12px;color:var(--dim);padding:0 2px;
+    display:flex;justify-content:space-between;align-items:center;gap:.6rem;
+    font-size:.75rem;color:var(--dim);padding:0 .125rem;
   }
-  .goal b{color:#dfe4ff;font-weight:600}
+  .goal b{color:var(--ink);font-weight:600}
   .goal .best{color:var(--gold);white-space:nowrap}
 
   /* ---------- BOARD ---------- */
-  /* 세로 공간이 부족한 화면(가로모드·작은 폰)에서도 보드가 잘리지 않도록 높이 기준으로도 제한 */
   .board{
     position:relative;width:100%;aspect-ratio:1/1;margin-inline:auto;
-    max-width:min(470px, max(230px, calc(100vh - 250px)));
-    max-width:min(470px, max(230px, calc(100dvh - 250px)));
+    max-width:min(29.375rem, max(14rem, calc(100vh - 26rem)));
+    max-width:min(29.375rem, max(14rem, calc(100dvh - 26rem)));
   }
   svg{width:100%;height:100%;display:block;overflow:visible;touch-action:none}
 
-  .cellbg{fill:#11132a;stroke:#232748;stroke-width:1.5}
+  .cellbg{fill:#11132a;stroke:var(--line);stroke-width:1.5}
   .cellbg.mirror{fill:#0d0f22}
 
-  .quad{fill:transparent;cursor:pointer;transition:fill .09s}
-  .qwrap .arr{opacity:0;fill:var(--cyan);pointer-events:none;transition:opacity .09s}
-  /* 마우스가 있는 환경: 호버로 미리보기 */
+  .quad{fill:transparent;cursor:pointer}
+  .qwrap .arr{opacity:0;fill:var(--cyan);pointer-events:none}
   @media (hover:hover){
     .qwrap:hover .quad{fill:rgba(61,240,255,.16)}
     .qwrap:hover .arr{opacity:1}
   }
-  /* 터치 환경: 호버가 없으므로 4방향 가이드를 항상 옅게 표시 */
-  @media (hover:none){
-    .qwrap .arr{opacity:.12}
-  }
-  /* 누르고 있는 동안의 조준 표시 (양쪽 공통) */
+  @media (hover:none){ .qwrap .arr{opacity:.16} }
   .qwrap.aim .quad{fill:rgba(61,240,255,.26)}
   .qwrap.aim .arr{opacity:1}
 
-  .mline{stroke:#cfd8ff;stroke-width:6;stroke-linecap:round;filter:url(#soft)}
-  .mline2{stroke:#5f6ba8;stroke-width:12;stroke-linecap:round;opacity:.35}
+  .mline{stroke:#eef2ff;stroke-width:6;stroke-linecap:round;filter:url(#soft)}
+  .mline2{stroke:#7c88c8;stroke-width:12;stroke-linecap:round;opacity:.45}
 
-  .exitglow{fill:none;stroke:var(--green);stroke-width:3.5;stroke-linecap:round;filter:url(#glow)}
+  .exitglow{fill:none;stroke:var(--green);stroke-width:4;stroke-linecap:round;filter:url(#glow)}
   .exitarrow{fill:var(--green);filter:url(#glow)}
+  .exitlabel{fill:var(--green);font-size:13px;font-weight:800;letter-spacing:.12em}
 
   .beam{fill:none;stroke:var(--cyan);stroke-width:4.5;stroke-linecap:round;stroke-linejoin:round}
   .beamglow{fill:none;stroke:var(--cyan);stroke-width:13;stroke-linecap:round;stroke-linejoin:round;
     opacity:.42;filter:url(#glow)}
+  /* 1.4.1 — 실패 빔은 색뿐 아니라 점선으로도 구분 */
   .beam.bad,.beamglow.bad{stroke:var(--pink)}
+  .beam.bad{stroke-dasharray:14 9}
 
   .emitter{fill:var(--cyan);filter:url(#glow)}
+  .emitring{fill:none;stroke:var(--cyan);stroke-width:2.5;opacity:.85}
+  .emitarrow{fill:var(--cyan);filter:url(#glow)}
+
+  .cursor{fill:none;stroke:var(--focus);stroke-width:3;stroke-dasharray:7 6;rx:8}
+
+  .spark{fill:var(--fever);filter:url(#glow)}
+  .fevertext{fill:var(--gold);font-size:15px;font-weight:800}
+
+  .board.fevermode .cellbg{stroke:var(--fever)}
+
+  /* ---------- CONTROLS ---------- */
+  .controls{display:grid;grid-template-columns:1fr 1.5fr 1fr;gap:.5rem}
+  .controls.sub{grid-template-columns:repeat(3,1fr)}
+  .ctl{
+    min-height:2.75rem;                        /* 2.5.8 터치 타깃 */
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.1rem;
+    padding:.4rem .3rem;border-radius:.75rem;
+    border:1px solid var(--line);background:linear-gradient(180deg,#171a33,#101226);
+    color:var(--ink);font-family:inherit;font-size:.8125rem;font-weight:700;
+    letter-spacing:.04em;cursor:pointer;
+  }
+  .ctl .ico{font-size:1.05rem;line-height:1}
+  .ctl kbd{
+    font:inherit;font-size:.625rem;font-weight:600;color:var(--dim);
+    letter-spacing:.06em;background:none;border:0;padding:0;
+  }
+  .ctl:hover{border-color:var(--cyan);background:linear-gradient(180deg,#1d2140,#12142b)}
+  .ctl:active{transform:translateY(1px)}
+  .ctl.fire{border-color:var(--cyan);color:var(--cyan);background:rgba(61,240,255,.12)}
+  .ctl.fire:hover{background:rgba(61,240,255,.24)}
+  .ctl[aria-disabled="true"]{opacity:.45;border-color:var(--line-soft);color:var(--dim)}
+  .ctl.small{min-height:2.75rem;font-size:.75rem;font-weight:600;flex-direction:row;gap:.3rem;flex-wrap:wrap}
+  .ctl[aria-pressed="false"].small{color:var(--dim)}
+  .controls.fevermode .ctl.fire{border-color:var(--fever);color:var(--fever);background:rgba(255,176,61,.18)}
 
   /* ---------- OVERLAYS ---------- */
   .flash{
     position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-    pointer-events:none;flex-direction:column;gap:4px;
+    pointer-events:none;flex-direction:column;gap:.25rem;
   }
-  .flash .big{
-    font-size:44px;font-weight:800;letter-spacing:.1em;
-    opacity:0;transform:scale(.7);
-  }
-  .flash .sub{font-size:15px;font-weight:600;opacity:0;color:#cfd6ff;text-align:center}
+  .flash .big{font-size:2.75rem;font-weight:800;letter-spacing:.1em;opacity:0;transform:scale(.7);
+    text-shadow:0 2px 10px rgba(0,0,0,.85)}
+  .flash .sub{font-size:.9375rem;font-weight:700;opacity:0;color:var(--ink);text-align:center;
+    text-shadow:0 2px 8px rgba(0,0,0,.9)}
   .flash.show .big{animation:pop .55s cubic-bezier(.2,1.5,.4,1) forwards}
   .flash.show .sub{animation:fade .55s ease forwards .1s}
   @keyframes pop{0%{opacity:0;transform:scale(.6)}60%{opacity:1;transform:scale(1.06)}100%{opacity:1;transform:scale(1)}}
   @keyframes fade{to{opacity:1}}
 
   .screen{
-    position:absolute;inset:-10px;background:rgba(6,7,16,.93);backdrop-filter:blur(3px);
-    border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;
-    gap:14px;text-align:center;padding:24px;z-index:5;overflow:auto;
+    position:absolute;inset:-.625rem;background:rgba(5,6,14,.95);backdrop-filter:blur(3px);
+    border:1px solid var(--line);border-radius:1rem;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:.75rem;text-align:center;padding:1.25rem;z-index:5;overflow:auto;
   }
   .screen.hide{display:none}
-  .screen h1{margin:0;font-size:30px;letter-spacing:.16em;color:var(--cyan);
+  .screen h1{margin:0;font-size:1.75rem;letter-spacing:.14em;color:var(--cyan);
     text-shadow:0 0 22px rgba(61,240,255,.5)}
-  .screen p{margin:0;font-size:13px;line-height:1.9;color:#aab2d8;max-width:330px}
+  .screen h2{margin:0;font-size:1.125rem;letter-spacing:.1em;color:var(--cyan)}
+  .screen p{margin:0;font-size:.8125rem;line-height:1.85;color:#c3caea;max-width:22rem}
   .screen p em{color:var(--gold);font-style:normal;font-weight:700}
-  .btn{
-    margin-top:6px;padding:12px 30px;border-radius:99px;border:1px solid var(--cyan);
-    background:rgba(61,240,255,.1);color:var(--cyan);font-size:14px;font-weight:700;
-    letter-spacing:.14em;cursor:pointer;transition:.15s;min-height:44px;
+  .keys{
+    display:grid;grid-template-columns:auto 1fr;gap:.35rem .75rem;
+    font-size:.75rem;color:#c3caea;text-align:left;max-width:20rem;
   }
-  .btn:hover{background:rgba(61,240,255,.24);box-shadow:0 0 22px rgba(61,240,255,.35)}
-  .finalscore{font-size:46px;font-weight:800;color:var(--gold);letter-spacing:.02em;line-height:1}
-  .hintrow{font-size:11px;color:var(--dim);letter-spacing:.06em}
-  .bestrow{font-size:12px;color:var(--gold);letter-spacing:.1em}
-  .bestrow.rec{color:var(--green);font-weight:700}
+  .keys dt{font-weight:700;color:var(--cyan);white-space:nowrap}
+  .keys dd{margin:0}
+  .btn{
+    margin-top:.25rem;padding:.75rem 1.75rem;border-radius:99px;border:1px solid var(--cyan);
+    background:rgba(61,240,255,.14);color:var(--cyan);font-family:inherit;
+    font-size:.875rem;font-weight:700;letter-spacing:.12em;cursor:pointer;min-height:2.75rem;
+  }
+  .btn:hover{background:rgba(61,240,255,.28);box-shadow:0 0 22px rgba(61,240,255,.35)}
+  .finalscore{font-size:2.875rem;font-weight:800;color:var(--gold);letter-spacing:.02em;line-height:1}
+  .hintrow{font-size:.6875rem;color:var(--dim);letter-spacing:.05em}
+  .bestrow{font-size:.75rem;color:var(--gold);letter-spacing:.1em;font-weight:700}
+  .bestrow.rec{color:var(--green)}
 
   .shake{animation:shake .34s}
   @keyframes shake{
     0%,100%{transform:translateX(0)}20%{transform:translateX(-9px)}
     40%{transform:translateX(8px)}60%{transform:translateX(-5px)}80%{transform:translateX(4px)}
   }
-  .footer{font-size:11px;color:#454b70;letter-spacing:.08em;text-align:center}
-  .footer .ver{color:#2f3457}
+  .feverflash{animation:feverpulse .7s ease-out}
+  @keyframes feverpulse{
+    0%{box-shadow:0 0 0 0 rgba(255,176,61,.75)}
+    100%{box-shadow:0 0 0 34px rgba(255,176,61,0)}
+  }
+  @keyframes sparkpop{
+    0%{transform:scale(.2);opacity:1}
+    100%{transform:scale(2.4);opacity:0}
+  }
+  .footer{font-size:.6875rem;color:var(--dim);letter-spacing:.06em;text-align:center}
+  .footer .ver{color:var(--line)}
 
-  /* 세로 공간이 좁은 화면(가로모드 등)에서는 HUD를 압축 */
-  @media (max-height:620px){
-    body{gap:8px;padding-top:8px}
-    .wrap{gap:7px}
-    .title{font-size:11px}
-    .stat{padding:4px 6px}
-    .stat .v{font-size:16px}
-    .goal{font-size:11px}
-    .screen h1{font-size:24px}
-    .screen p{font-size:12px;line-height:1.7}
+  @media (max-height:47rem){
+    body{gap:.45rem}
+    .wrap{gap:.4rem}
+    .stat{padding:.25rem .4rem}
+    .stat .v{font-size:1rem}
     .footer{display:none}
   }
+  /* 2.2.2 / 모션 민감 사용자 — 애니메이션 제거 */
   @media (prefers-reduced-motion:reduce){
-    .shake{animation:none}
+    .shake,.feverflash,.flash.show .big,.flash.show .sub{animation:none}
+    .flash.show .big,.flash.show .sub{opacity:1;transform:none}
   }
 </style>
 </head>
 <body>
 
 <div class="wrap">
-  <div class="title"><b>MIRROR RUSH</b><span>거울 방 레이저</span></div>
+  <h1 class="title"><b>MIRROR RUSH</b><span>거울 방 레이저</span></h1>
 
   <div class="hud">
-    <div class="stat"><div class="k">LEVEL</div><div class="v" id="uiLevel">1</div></div>
-    <div class="stat"><div class="k">SCORE</div><div class="v score" id="uiScore">0</div></div>
-    <div class="stat"><div class="k">COMBO</div><div class="v combo" id="uiCombo">x1.0</div></div>
-    <div class="stat"><div class="k">LIFE</div><div class="v life" id="uiLife">●●●</div></div>
+    <div class="stat"><div class="k" id="kLevel">LEVEL</div>
+      <div class="v" id="uiLevel" aria-labelledby="kLevel">1</div></div>
+    <div class="stat"><div class="k" id="kScore">SCORE</div>
+      <div class="v score" id="uiScore" aria-labelledby="kScore">0</div></div>
+    <div class="stat"><div class="k" id="kCombo">COMBO</div>
+      <div class="v combo" id="uiCombo" aria-labelledby="kCombo">x1.00</div></div>
+    <div class="stat"><div class="k" id="kLife">LIFE</div>
+      <div class="v life" id="uiLife" aria-labelledby="kLife">●●●</div></div>
   </div>
 
-  <div class="timebar" id="timebar"><i id="timefill"></i></div>
+  <div class="timebar" id="timebar" role="progressbar" aria-label="남은 시간"
+       aria-valuemin="0" aria-valuemax="100" aria-valuenow="100">
+    <i id="timefill"></i><span class="tlabel" id="timelabel"></span>
+  </div>
 
-  <div class="goal">
-    <span>누른 채 <b>방향으로 밀어</b> 조준 → 떼면 발사</span>
+  <p class="goal">
+    <span id="hintText">타일을 눌러 <b>설치</b> → 회전 → 발사</span>
     <span class="best">목표 <b id="uiBest">-</b>칸</span>
-  </div>
+  </p>
 
   <div class="board" id="board">
-    <svg id="svg" viewBox="0 0 452 452">
+    <svg id="svg" viewBox="0 0 452 452" tabindex="0" role="application"
+         aria-label="5×5 거울 방. 방향키로 칸을 고르고 Enter로 레이저를 설치한 뒤, Q 또는 E로 회전하고 Space로 발사합니다."
+         aria-describedby="live">
       <defs>
         <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
           <feGaussianBlur stdDeviation="5" result="b"/>
@@ -199,44 +292,98 @@
       <g id="gCells"></g>
       <g id="gExit"></g>
       <g id="gBeam"></g>
+      <g id="gEmit"></g>
+      <g id="gFx"></g>
       <g id="gQuads"></g>
+      <g id="gCur"></g>
     </svg>
 
-    <div class="flash" id="flash"><div class="big" id="flashBig"></div><div class="sub" id="flashSub"></div></div>
+    <div class="flash" id="flash" aria-hidden="true">
+      <div class="big" id="flashBig"></div><div class="sub" id="flashSub"></div>
+    </div>
 
     <div class="screen" id="screenStart">
-      <h1>MIRROR RUSH</h1>
+      <h2>MIRROR RUSH</h2>
       <p>
         5×5 방에 <em>거울</em>이 대각선으로 놓여 있습니다.<br>
-        빈 칸을 누른 채 <em>쏘고 싶은 방향</em>으로 밀면<br>
-        그 방향이 조준되고, 손을 떼면 발사됩니다.<br>
-        <em>초록 출구</em>로 빠져나가면 클리어!<br>
-        레이저가 <em>많은 칸을 지날수록</em> 고득점.
+        빈 타일을 눌러 <em>레이저를 설치</em>하고,<br>
+        <em>회전</em>으로 방향을 맞춘 뒤 <em>발사</em>하세요.<br>
+        <em>초록 EXIT</em>로 빠져나가면 클리어!<br>
+        콤보를 5개 쌓으면 <em>FEVER</em>가 터집니다.
       </p>
-      <button class="btn" id="btnStart">START</button>
-      <div class="bestrow" id="startBest"></div>
-      <div class="hintrow">보드 밖에서 손을 떼면 발사 취소</div>
+      <button class="btn" id="btnStart" type="button">START</button>
+      <p class="bestrow" id="startBest"></p>
+      <p class="hintrow">키보드: 방향키 이동 · Q/E 회전 · Space 발사</p>
+    </div>
+
+    <div class="screen hide" id="screenHelp">
+      <h2>조작 방법</h2>
+      <dl class="keys">
+        <dt>탭 / 클릭</dt><dd>빈 타일에 레이저 설치 (누른 채 밀면 방향까지 지정)</dd>
+        <dt>방향키</dt><dd>칸 커서 이동</dd>
+        <dt>Enter</dt><dd>커서 위치에 설치</dd>
+        <dt>Q / E</dt><dd>왼쪽 / 오른쪽 90° 회전</dd>
+        <dt>Space</dt><dd>발사</dd>
+        <dt>P</dt><dd>일시정지 · 재개</dd>
+        <dt>M</dt><dd>소리 켜기 · 끄기</dd>
+        <dt>Esc</dt><dd>이 창 닫기</dd>
+      </dl>
+      <button class="btn" id="btnHelpClose" type="button">닫기</button>
+    </div>
+
+    <div class="screen hide" id="screenPause">
+      <h2>일시정지</h2>
+      <p>남은 시간은 그대로 유지됩니다.</p>
+      <button class="btn" id="btnResume" type="button">계속하기</button>
+      <p class="hintrow">P 키로도 재개</p>
     </div>
 
     <div class="screen hide" id="screenOver">
-      <h1 style="color:var(--pink);text-shadow:0 0 22px rgba(255,61,139,.5)">GAME OVER</h1>
-      <div class="finalscore" id="finalScore">0</div>
-      <div class="bestrow" id="overBest"></div>
-      <p><b id="finalDetail" style="color:#aab2d8;font-weight:400"></b></p>
-      <button class="btn" id="btnRetry">RETRY</button>
-      <div class="hintrow">SPACE 키로도 재시작</div>
+      <h2 style="color:var(--pink)">GAME OVER</h2>
+      <p class="finalscore" id="finalScore">0</p>
+      <p class="bestrow" id="overBest"></p>
+      <p id="finalDetail"></p>
+      <button class="btn" id="btnRetry" type="button">RETRY</button>
+      <p class="hintrow">Space 키로도 재시작</p>
     </div>
   </div>
 
-  <div class="footer">거울 <span style="color:#cfd8ff">╱ ╲</span> 에서 90° 반사 · 같은 자리를 맴돌면 실패 <span class="ver">v0.2</span></div>
+  <div class="controls" id="controls" role="group" aria-label="레이저 조작">
+    <button class="ctl" id="btnRotL" type="button" aria-label="왼쪽으로 90도 회전, 단축키 Q">
+      <span class="ico" aria-hidden="true">↺</span><span aria-hidden="true">왼쪽 회전</span><kbd aria-hidden="true">Q</kbd>
+    </button>
+    <button class="ctl fire" id="btnFire" type="button" aria-disabled="true" aria-label="레이저 발사, 단축키 스페이스">
+      <span class="ico" aria-hidden="true">▶</span><span aria-hidden="true">발사</span><kbd aria-hidden="true">Space</kbd>
+    </button>
+    <button class="ctl" id="btnRotR" type="button" aria-label="오른쪽으로 90도 회전, 단축키 E">
+      <span class="ico" aria-hidden="true">↻</span><span aria-hidden="true">오른쪽 회전</span><kbd aria-hidden="true">E</kbd>
+    </button>
+  </div>
+
+  <div class="controls sub" role="group" aria-label="보조 기능">
+    <button class="ctl small" id="btnPause" type="button" aria-pressed="false" aria-label="일시정지, 단축키 P">
+      <span class="ico" aria-hidden="true">❚❚</span><span aria-hidden="true">일시정지</span><kbd aria-hidden="true">P</kbd>
+    </button>
+    <button class="ctl small" id="btnSound" type="button" aria-pressed="true" aria-label="소리 켜기 또는 끄기, 단축키 M">
+      <span class="ico" aria-hidden="true">♪</span><span id="soundLabel" aria-hidden="true">소리 켬</span><kbd aria-hidden="true">M</kbd>
+    </button>
+    <button class="ctl small" id="btnHelp" type="button" aria-label="조작 방법 도움말 열기, 단축키 H">
+      <span class="ico" aria-hidden="true">?</span><span aria-hidden="true">도움말</span><kbd aria-hidden="true">H</kbd>
+    </button>
+  </div>
+
+  <p id="live" class="sr-only" role="status" aria-live="polite"></p>
+
+  <p class="footer">거울 <span style="color:var(--ink)">╱ ╲</span> 에서 90° 반사 · 같은 자리를 맴돌면 실패 <span class="ver">v0.3</span></p>
 </div>
 
 <script>
 /* ============================ 상수 ============================ */
 const N = 5, CELL = 72, GAP = 8, PAD = 30;
-const STEP = CELL + GAP;                 // 셀 중심 간 거리
+const STEP = CELL + GAP;
 const DIRS = { N:[-1,0], E:[0,1], S:[1,0], W:[0,-1] };
-const DKEYS = ['N','E','S','W'];
+const DKEYS = ['N','E','S','W'];                 // 시계 방향 순서
+const DNAME = { N:'위', E:'오른쪽', S:'아래', W:'왼쪽' };
 const REFLECT = {
   '/' : { N:'E', E:'N', S:'W', W:'S' },
   '\\': { N:'W', W:'N', S:'E', E:'S' }
@@ -245,45 +392,121 @@ const cx = c => PAD + c * STEP + CELL/2;
 const cy = r => PAD + r * STEP + CELL/2;
 const rnd = n => Math.floor(Math.random()*n);
 const pick = a => a[rnd(a.length)];
-const BEST_KEY = 'mirrorrush.best';
+const BEST_KEY  = 'mirrorrush.best';
+const MUTE_KEY  = 'mirrorrush.mute';
+const FEVER_EVERY = 5;         // 콤보 5의 배수마다 피버
+const FEVER_MS    = 6000;
 
 /* ============================ 상태 ============================ */
 const S = {
   level:1, score:0, life:3, combo:0,
   grid:null, exit:null, best:0,
-  phase:'idle',            // idle | ready | firing | over
-  timeLimit:0, tEnd:0, raf:0
+  emitter:null,            // {r,c,d} — 설치된 레이저
+  cur:{r:2,c:2},           // 키보드 커서
+  phase:'idle',            // idle | ready | firing | fever | paused | over
+  timeLimit:0, tEnd:0, raf:0,
+  pauseLeft:0, prevScreen:null,
+  feverEnd:0, feverHits:0,
+  lastTickSec:-1
 };
 
 const $ = id => document.getElementById(id);
-const gCells=$('gCells'), gExit=$('gExit'), gBeam=$('gBeam'), gQuads=$('gQuads');
+const gCells=$('gCells'), gExit=$('gExit'), gBeam=$('gBeam'),
+      gEmit=$('gEmit'), gFx=$('gFx'), gQuads=$('gQuads'), gCur=$('gCur');
 const SVGNS='http://www.w3.org/2000/svg';
 const mk=(t,a={})=>{const e=document.createElementNS(SVGNS,t);for(const k in a)e.setAttribute(k,a[k]);return e;};
+const say = msg => { $('live').textContent = msg; };
 
-/* ============================ 최고 점수 ============================ */
+/* ============================ 저장 ============================ */
 function loadBest(){ try{ return +(localStorage.getItem(BEST_KEY)||0)||0; }catch(e){ return 0; } }
 function saveBest(v){ try{ localStorage.setItem(BEST_KEY, String(v)); }catch(e){} }
 
 /* ============================ 사운드 ============================ */
-let AC=null;
-function ac(){ if(!AC) AC = new (window.AudioContext||window.webkitAudioContext)(); return AC; }
-function blip(freq, dur=0.06, type='square', vol=0.05, at=0){
+let AC=null, MASTER=null;
+let muted = (()=>{ try{ return localStorage.getItem(MUTE_KEY)==='1'; }catch(e){ return false; } })();
+
+function ac(){
+  if(!AC){
+    AC = new (window.AudioContext||window.webkitAudioContext)();
+    MASTER = AC.createGain(); MASTER.gain.value = 0.85; MASTER.connect(AC.destination);
+  }
+  return AC;
+}
+function tone(o){
+  if(muted) return;
   try{
-    const c=ac(), t=c.currentTime+at;
-    const o=c.createOscillator(), g=c.createGain();
-    o.type=type; o.frequency.setValueAtTime(freq,t);
-    g.gain.setValueAtTime(0,t);
-    g.gain.linearRampToValueAtTime(vol,t+0.008);
-    g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
-    o.connect(g); g.connect(c.destination); o.start(t); o.stop(t+dur+0.02);
+    const c=ac(), t=c.currentTime+(o.at||0);
+    const dur=o.dur||0.08, vol=(o.vol==null?0.05:o.vol);
+    const osc=c.createOscillator(), g=c.createGain();
+    osc.type=o.type||'square';
+    osc.frequency.setValueAtTime(o.freq,t);
+    if(o.to && o.to!==o.freq) osc.frequency.exponentialRampToValueAtTime(Math.max(20,o.to), t+dur);
+    g.gain.setValueAtTime(0.0001,t);
+    g.gain.exponentialRampToValueAtTime(Math.max(0.0002,vol), t+Math.min(0.014,dur*0.3));
+    g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
+    osc.connect(g); g.connect(MASTER); osc.start(t); osc.stop(t+dur+0.04);
   }catch(e){}
 }
-const sClear = () => [660,880,1320].forEach((f,i)=>blip(f,0.16,'triangle',0.06,i*0.07));
-const sFail  = () => { blip(160,0.22,'sawtooth',0.05); blip(110,0.3,'sawtooth',0.045,0.08); };
-const sAim   = () => blip(880,0.025,'square',0.02);
+function noise(o){
+  if(muted) return;
+  try{
+    const c=ac(), t=c.currentTime+(o.at||0), dur=o.dur||0.12;
+    const len=Math.max(1,Math.floor(c.sampleRate*dur));
+    const buf=c.createBuffer(1,len,c.sampleRate), ch=buf.getChannelData(0);
+    for(let i=0;i<len;i++) ch[i]=(Math.random()*2-1)*(1-i/len);
+    const src=c.createBufferSource(); src.buffer=buf;
+    const bp=c.createBiquadFilter(); bp.type='bandpass'; bp.Q.value=o.q||1.2;
+    bp.frequency.setValueAtTime(o.freq||1200,t);
+    if(o.to) bp.frequency.exponentialRampToValueAtTime(Math.max(40,o.to), t+dur);
+    const g=c.createGain();
+    g.gain.setValueAtTime(o.vol==null?0.06:o.vol,t);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+    src.connect(bp); bp.connect(g); g.connect(MASTER); src.start(t); src.stop(t+dur+0.03);
+  }catch(e){}
+}
+
+const SFX = {
+  btn:     ()=> tone({freq:640,to:880,dur:.045,type:'square',vol:.035}),
+  move:    ()=> tone({freq:420,dur:.028,type:'square',vol:.028}),
+  place:   ()=>{ tone({freq:340,to:700,dur:.07,type:'triangle',vol:.055});
+                 noise({freq:2600,to:900,dur:.06,vol:.03}); },
+  rotate:  ()=>{ tone({freq:300,to:640,dur:.085,type:'sawtooth',vol:.045});
+                 noise({freq:2400,to:700,dur:.06,vol:.028}); },
+  fire:    ()=>{ tone({freq:980,to:170,dur:.2,type:'sawtooth',vol:.06});
+                 noise({freq:3400,to:380,dur:.24,vol:.05}); },
+  bounce:  (i,at)=> tone({freq:520+(i%14)*44,to:640+(i%14)*44,dur:.05,type:'square',vol:.034,at}),
+  travel:  (i,at)=> tone({freq:300+(i%10)*18,dur:.03,type:'sine',vol:.016,at}),
+  exitHit: at=>{ tone({freq:1320,to:2100,dur:.14,type:'triangle',vol:.055,at});
+                 noise({freq:5200,to:2000,dur:.12,vol:.035,at}); },
+  clear:   ()=> [660,880,1320].forEach((f,i)=>tone({freq:f,dur:.17,type:'triangle',vol:.06,at:i*.07})),
+  perfect: ()=>{ [660,880,1100,1320,1760].forEach((f,i)=>{
+                   tone({freq:f,dur:.24,type:'triangle',vol:.06,at:i*.06});
+                   tone({freq:f*2,dur:.15,type:'sine',vol:.028,at:i*.06}); });
+                 noise({freq:900,to:6000,dur:.4,vol:.04}); },
+  miss:    ()=>{ tone({freq:210,to:85,dur:.32,type:'sawtooth',vol:.06});
+                 tone({freq:150,to:70,dur:.4,type:'square',vol:.04,at:.06});
+                 noise({freq:900,to:120,dur:.34,vol:.05}); },
+  timeup:  ()=> [440,330,220].forEach((f,i)=>tone({freq:f,dur:.24,type:'square',vol:.055,at:i*.11})),
+  tick:    ()=>{ tone({freq:1500,dur:.04,type:'square',vol:.04});
+                 tone({freq:2200,dur:.03,type:'sine',vol:.02,at:.01}); },
+  levelup: ()=> [880,1320].forEach((f,i)=>tone({freq:f,dur:.11,type:'triangle',vol:.045,at:i*.06})),
+  feverGo: ()=>{ [523,659,784,1047,1319,1568].forEach((f,i)=>{
+                   tone({freq:f,dur:.32,type:'sawtooth',vol:.05,at:i*.05});
+                   tone({freq:f/2,dur:.32,type:'square',vol:.03,at:i*.05}); });
+                 noise({freq:260,to:6000,dur:.55,vol:.06}); },
+  feverHit:n=>{ const f=440*Math.pow(2,(n%15)/12);
+                tone({freq:f,to:f*1.5,dur:.09,type:'square',vol:.05});
+                tone({freq:f*2,dur:.07,type:'sine',vol:.03});
+                noise({freq:4600,to:1600,dur:.06,vol:.03}); },
+  feverEnd:()=>{ tone({freq:1319,to:523,dur:.36,type:'sawtooth',vol:.05});
+                 noise({freq:3000,to:200,dur:.3,vol:.035}); },
+  gameover:()=>{ [392,330,262,196].forEach((f,i)=>tone({freq:f,dur:.42,type:'sawtooth',vol:.06,at:i*.16}));
+                 noise({freq:600,to:80,dur:.7,vol:.04,at:.1}); },
+  pause:   ()=> tone({freq:520,to:300,dur:.1,type:'triangle',vol:.04}),
+  resume:  ()=> tone({freq:300,to:640,dur:.1,type:'triangle',vol:.04})
+};
 
 /* ============================ 시뮬레이션 ============================ */
-// (r,c)에서 d 방향으로 발사 → 지나간 칸 목록 / 탈출한 경계면
 function simulate(grid, r, c, d){
   const path=[[r,c]], seen=new Set();
   for(let i=0;i<300;i++){
@@ -298,61 +521,77 @@ function simulate(grid, r, c, d){
   }
   return { path, exit:null, loop:true };
 }
+const countBounces = (grid,path) => path.reduce((n,[r,c])=> n + (grid[r][c]?1:0), 0);
+
+// 출구가 걸린 행/열에 거울이 최소 1개 있는가 (직선 정답 방지)
+function exitLineHasMirror(grid, exitKey){
+  const [r,c,d] = exitKey.split(',');
+  if(d==='N'||d==='S'){ for(let i=0;i<N;i++) if(grid[i][+c]) return true; }
+  else                { for(let i=0;i<N;i++) if(grid[+r][i]) return true; }
+  return false;
+}
 
 /* ============================ 맵 생성 ============================ */
 function genLevel(level){
   const mirrorCount = Math.min(4 + Math.floor(level*0.7), 13);
   const wantLen     = Math.min(5 + Math.floor(level/2), 14);
+  const wantBounce  = Math.min(1 + Math.floor(level/4), 4);   // 정답 경로의 최소 반사 횟수
 
-  for(let attempt=0; attempt<800; attempt++){
+  for(let attempt=0; attempt<900; attempt++){
     const grid = Array.from({length:N}, ()=>Array(N).fill(null));
     const cells=[]; for(let r=0;r<N;r++) for(let c=0;c<N;c++) cells.push([r,c]);
     for(let i=cells.length-1;i>0;i--){ const j=rnd(i+1); [cells[i],cells[j]]=[cells[j],cells[i]]; }
     for(let i=0;i<mirrorCount;i++){ const [r,c]=cells[i]; grid[r][c] = Math.random()<0.5 ? '/' : '\\'; }
 
-    // 모든 출발점(빈 칸 × 4방향)을 돌려 경계면별 통계 수집
     const byExit = new Map();
     for(let r=0;r<N;r++) for(let c=0;c<N;c++){
       if(grid[r][c]) continue;
       for(const d of DKEYS){
         const res = simulate(grid,r,c,d);
         if(!res.exit) continue;
-        const e = byExit.get(res.exit) || { count:0, best:0 };
+        const e = byExit.get(res.exit) || { count:0, best:0, bounce:0 };
         e.count++;
-        if(res.path.length > e.best) e.best = res.path.length;
+        if(res.path.length > e.best){ e.best = res.path.length; e.bounce = countBounces(grid,res.path); }
         byExit.set(res.exit, e);
       }
     }
 
-    const relax = attempt > 400;
-    const minLen = relax ? Math.max(4, wantLen-3) : wantLen;
-    const maxSol = relax ? 10 : 6;
+    const relax = attempt > 450;
+    const minLen    = relax ? Math.max(4, wantLen-3) : wantLen;
+    const maxSol    = relax ? 10 : 6;
+    const minBounce = relax ? 1  : wantBounce;
 
     const cands=[];
-    for(const [exitKey,e] of byExit)
-      if(e.count>=1 && e.count<=maxSol && e.best>=minLen) cands.push([exitKey,e]);
+    for(const [exitKey,e] of byExit){
+      if(e.count<1 || e.count>maxSol) continue;
+      if(e.best < minLen)   continue;
+      if(e.bounce < minBounce) continue;          // 정답이 거울을 반드시 타고 나가도록
+      if(!exitLineHasMirror(grid, exitKey)) continue;
+      cands.push([exitKey,e]);
+    }
 
     if(cands.length){
       const [exitKey,e] = pick(cands);
-      return { grid, exit:exitKey, best:e.best };
+      return { grid, exit:exitKey, best:e.best, bounce:e.bounce };
     }
   }
-  // 안전망 (사실상 도달하지 않음)
+  // 안전망: 반사 1회를 보장한 고정 배치
   const grid = Array.from({length:N},()=>Array(N).fill(null));
-  return { grid, exit:'2,4,E', best:5 };
+  grid[2][4] = '/';
+  return { grid, exit:'0,4,N', best:6, bounce:1 };
 }
 
 /* ============================ 렌더링 ============================ */
-function arrowPts(x,y,d){
-  const [dr,dc]=DIRS[d], L=25, W=9, B=12;
-  const tx=x+dc*L, ty=y+dr*L;
-  const bx=x+dc*B, by=y+dr*B;
-  const px=-dr, py=dc;                          // 수직 벡터
+function arrowPts(x,y,d,L=25,W=9,B=12){
+  const [dr,dc]=DIRS[d];
+  const tx=x+dc*L, ty=y+dr*L, bx=x+dc*B, by=y+dr*B;
+  const px=-dr, py=dc;
   return `${tx},${ty} ${bx+px*W},${by+py*W} ${bx-px*W},${by-py*W}`;
 }
 
 function drawBoard(){
-  gCells.innerHTML=''; gExit.innerHTML=''; gBeam.innerHTML=''; gQuads.innerHTML='';
+  gCells.innerHTML=''; gExit.innerHTML=''; gBeam.innerHTML='';
+  gEmit.innerHTML=''; gFx.innerHTML=''; gQuads.innerHTML=''; gCur.innerHTML='';
   clearAim();
 
   for(let r=0;r<N;r++) for(let c=0;c<N;c++){
@@ -382,6 +621,8 @@ function drawBoard(){
     }
   }
   drawExit();
+  drawEmitter();
+  drawCursor();
 }
 
 function drawExit(){
@@ -389,17 +630,36 @@ function drawExit(){
   const [dr,dc] = DIRS[d];
   const x = cx(+c) + dc*(CELL/2+5), y = cy(+r) + dr*(CELL/2+5);
   const px=-dr, py=dc, W=20;
-  gExit.appendChild(mk('line',{
-    x1:x+px*W, y1:y+py*W, x2:x-px*W, y2:y-py*W, class:'exitglow' }));
+  gExit.appendChild(mk('line',{x1:x+px*W,y1:y+py*W,x2:x-px*W,y2:y-py*W,class:'exitglow'}));
   const tipX = x + dc*20, tipY = y + dr*20;
   gExit.appendChild(mk('polygon',{
     points:`${tipX},${tipY} ${x+dc*7+px*10},${y+dr*7+py*10} ${x+dc*7-px*10},${y+dr*7-py*10}`,
     class:'exitarrow'}));
+  // 1.4.1 — 색 외에 글자로도 출구임을 알림
+  const lx = x + dc*4 - px*30, ly = y + dr*4 - py*30;
+  const t = mk('text',{x:lx,y:ly,class:'exitlabel','text-anchor':'middle','dominant-baseline':'middle'});
+  t.textContent='EXIT';
+  gExit.appendChild(t);
 }
 
-/* ============================ 조준 입력 (마우스 + 터치 공통) ============================ */
-// 누르면 조준, 밀면 방향 변경, 떼면 발사. 보드 밖에서 떼면 취소.
-let aimEl=null, dragging=false;
+function drawEmitter(){
+  gEmit.innerHTML='';
+  if(!S.emitter) return;
+  const {r,c,d}=S.emitter, x=cx(c), y=cy(r);
+  gEmit.appendChild(mk('circle',{cx:x,cy:y,r:11,class:'emitter'}));
+  gEmit.appendChild(mk('circle',{cx:x,cy:y,r:20,class:'emitring'}));
+  gEmit.appendChild(mk('polygon',{points:arrowPts(x,y,d,32,11,18),class:'emitarrow'}));
+}
+
+function drawCursor(){
+  gCur.innerHTML='';
+  if(!kbMode || S.phase==='over' || S.phase==='idle') return;
+  const {r,c}=S.cur;
+  gCur.appendChild(mk('rect',{x:PAD+c*STEP-3,y:PAD+r*STEP-3,width:CELL+6,height:CELL+6,rx:10,class:'cursor'}));
+}
+
+/* ============================ 조준 입력 ============================ */
+let aimEl=null, dragging=false, kbMode=false;
 
 function quadAt(x,y){
   const el = document.elementFromPoint(x,y);
@@ -409,48 +669,95 @@ function setAim(g){
   if(aimEl===g) return;
   if(aimEl) aimEl.classList.remove('aim');
   aimEl = g;
-  if(aimEl){ aimEl.classList.add('aim'); sAim(); }
+  if(aimEl) aimEl.classList.add('aim');
 }
 function clearAim(){ setAim(null); }
 
+// 타일을 눌러 레이저 설치 (누른 채 밀면 방향까지 지정). 손을 떼도 발사되지 않음.
+function placeFrom(g){
+  const r=+g.dataset.r, c=+g.dataset.c, d=g.dataset.d;
+  const changed = !S.emitter || S.emitter.r!==r || S.emitter.c!==c || S.emitter.d!==d;
+  S.emitter={r,c,d}; S.cur={r,c};
+  drawEmitter(); drawCursor(); updateControls();
+  if(changed){ SFX.place(); say(`${r+1}행 ${c+1}열에 레이저 설치, ${DNAME[d]} 방향.`); }
+}
+
 $('svg').addEventListener('pointerdown', e=>{
+  if(S.phase==='fever'){ e.preventDefault(); feverHit(e.clientX,e.clientY); return; }
   if(S.phase!=='ready') return;
   const g = quadAt(e.clientX, e.clientY);
   if(!g) return;
   e.preventDefault();
-  dragging = true;
-  setAim(g);
+  kbMode=false; drawCursor();
+  dragging = true; setAim(g); placeFrom(g);
 });
 addEventListener('pointermove', e=>{
   if(!dragging) return;
   const g = quadAt(e.clientX, e.clientY);
-  if(g) setAim(g);              // 칸 밖으로 나가면 마지막 조준을 유지
+  if(g){ setAim(g); placeFrom(g); }
 });
-addEventListener('pointerup', e=>{
-  if(!dragging) return;
-  dragging = false;
-  const g = aimEl;
-  clearAim();
-  if(!g || S.phase!=='ready') return;
-  const b = $('board').getBoundingClientRect();
-  const inside = e.clientX>=b.left && e.clientX<=b.right && e.clientY>=b.top && e.clientY<=b.bottom;
-  if(inside) fire(+g.dataset.r, +g.dataset.c, g.dataset.d);
-});
+addEventListener('pointerup', ()=>{ if(dragging){ dragging=false; clearAim(); } });
 addEventListener('pointercancel', ()=>{ dragging=false; clearAim(); });
+
+/* ============================ 조작 명령 ============================ */
+function rotate(step){
+  if(S.phase!=='ready') return;
+  if(!S.emitter){ needEmitter(); return; }
+  const i = DKEYS.indexOf(S.emitter.d);
+  S.emitter.d = DKEYS[(i+step+4)%4];
+  drawEmitter(); SFX.rotate();
+  say(`${DNAME[S.emitter.d]} 방향.`);
+}
+function needEmitter(){
+  SFX.miss();
+  showFlash('!','먼저 타일을 눌러 레이저를 설치하세요','var(--gold)');
+  say('먼저 타일을 눌러 레이저를 설치하세요.');
+}
+function moveCursor(dr,dc){
+  if(S.phase!=='ready') return;
+  kbMode=true;
+  S.cur.r=Math.min(N-1,Math.max(0,S.cur.r+dr));
+  S.cur.c=Math.min(N-1,Math.max(0,S.cur.c+dc));
+  drawCursor(); SFX.move();
+  const m=S.grid[S.cur.r][S.cur.c];
+  say(`${S.cur.r+1}행 ${S.cur.c+1}열 ${m?('거울 '+m):'빈 칸'}.`);
+}
+function placeAtCursor(){
+  if(S.phase!=='ready') return;
+  const {r,c}=S.cur;
+  if(S.grid[r][c]){
+    SFX.miss();
+    showFlash('!','거울 칸에는 설치할 수 없습니다','var(--gold)');
+    say('거울 칸에는 설치할 수 없습니다.');
+    return;
+  }
+  const d = S.emitter ? S.emitter.d : 'N';
+  S.emitter={r,c,d};
+  drawEmitter(); updateControls(); SFX.place();
+  say(`${r+1}행 ${c+1}열에 레이저 설치, ${DNAME[d]} 방향.`);
+}
+function tryFire(){
+  if(S.phase==='fever'){ feverHit(); return; }
+  if(S.phase!=='ready') return;
+  if(!S.emitter){ needEmitter(); return; }
+  fire(S.emitter.r, S.emitter.c, S.emitter.d);
+}
+function updateControls(){
+  const on = S.phase==='ready' && !!S.emitter;
+  $('btnFire').setAttribute('aria-disabled', on?'false':'true');
+}
 
 /* ============================ 발사 ============================ */
 function fire(r,c,d){
-  if(S.phase!=='ready') return;
   S.phase='firing';
-  stopTimer();
+  stopTimer(); clearAim(); dragging=false;
   const remain = Math.max(0,(S.tEnd-performance.now())/1000);
   const res = simulate(S.grid,r,c,d);
   const ok  = res.exit === S.exit;
 
-  clearAim();
-  gQuads.innerHTML='';
+  gQuads.innerHTML=''; gCur.innerHTML='';
+  SFX.fire();
 
-  // 경로 좌표
   const pts = res.path.map(([pr,pc])=>[cx(pc),cy(pr)]);
   if(res.exit){
     const [er,ec,ed]=res.exit.split(',');
@@ -459,25 +766,38 @@ function fire(r,c,d){
   }
   const dstr = pts.map((p,i)=>(i?'L':'M')+p[0]+' '+p[1]).join(' ');
 
-  gBeam.appendChild(mk('circle',{cx:cx(c),cy:cy(r),r:9,class:'emitter'}));
   const glow = mk('path',{d:dstr,class:'beamglow'+(ok?'':' bad')});
   const line = mk('path',{d:dstr,class:'beam'+(ok?'':' bad')});
   gBeam.appendChild(glow); gBeam.appendChild(line);
 
+  const reduce = matchMedia('(prefers-reduced-motion:reduce)').matches;
   const len = line.getTotalLength();
-  const dur = Math.min(1250, Math.max(340, 68*(pts.length-1)));
-  [glow,line].forEach(el=>{
-    el.style.strokeDasharray = len;
-    el.style.strokeDashoffset = len;
-    el.style.transition = `stroke-dashoffset ${dur}ms linear`;
+  const dur = reduce ? 260 : Math.min(1250, Math.max(340, 68*(pts.length-1)));
+  if(!reduce){
+    [glow,line].forEach(el=>{
+      el.style.strokeDasharray = len;
+      el.style.strokeDashoffset = len;
+      el.style.transition = `stroke-dashoffset ${dur}ms linear`;
+    });
+    requestAnimationFrame(()=>{ glow.style.strokeDashoffset=0; line.style.strokeDashoffset=0; });
+    // 그려진 뒤 인라인 dash를 걷어내, 실패 빔의 점선 패턴(1.4.1)이 드러나게 한다
+    setTimeout(()=>{
+      [glow,line].forEach(el=>{
+        el.style.transition=''; el.style.strokeDasharray=''; el.style.strokeDashoffset='';
+      });
+    }, dur+20);
+  }
+
+  // 경로를 따라 이동음 + 거울에 닿을 때마다 반사음
+  const seg = dur/Math.max(1,pts.length-1)/1000;
+  let bounceIdx=0;
+  res.path.forEach(([pr,pc],i)=>{
+    SFX.travel(i, i*seg);
+    if(S.grid[pr][pc]) SFX.bounce(bounceIdx++, i*seg);
   });
-  requestAnimationFrame(()=>{ glow.style.strokeDashoffset=0; line.style.strokeDashoffset=0; });
+  if(res.exit) SFX.exitHit(dur/1000);
 
-  const cells = res.path.length;
-  for(let i=0;i<Math.min(cells,26);i++)
-    blip(520 + i*32, 0.04, 'square', 0.028, (i*dur/(pts.length-1))/1000);
-
-  setTimeout(()=>resolve(ok,res,cells,remain), dur+120);
+  setTimeout(()=>resolve(ok,res,res.path.length,remain), dur+120);
 }
 
 function resolve(ok,res,cells,remain){
@@ -485,19 +805,27 @@ function resolve(ok,res,cells,remain){
     const perfect = cells >= S.best;
     const base    = cells*10;
     const timeB   = Math.round(remain*8);
-    const mult    = 1 + S.combo*0.15;            // 이번 판에 적용된 배수
+    const mult    = 1 + S.combo*0.15;
     const gain    = Math.round((base*(perfect?2:1) + timeB) * mult);
     S.score += gain; S.combo++;
-    sClear();
+    perfect ? SFX.perfect() : SFX.clear();
     showFlash(perfect?'PERFECT!':'CLEAR',
       `${cells}칸 · x${mult.toFixed(2)} · +${gain}`, perfect?'var(--gold)':'var(--green)');
+    say(`${perfect?'퍼펙트':'클리어'}. ${cells}칸 통과, ${gain}점 획득. 총 ${S.score}점.`);
     updateHUD();
-    setTimeout(()=>{ S.level++; nextLevel(); }, 820);
+    const fever = S.combo>0 && S.combo % FEVER_EVERY === 0;
+    setTimeout(()=>{
+      if(fever) startFever();
+      else { S.level++; SFX.levelup(); nextLevel(); }
+    }, 820);
   }else{
-    S.life--; S.combo=0;
-    sFail();
-    const why = res.loop ? '무한 반사!' : '출구가 아닙니다';
+    S.life--; S.combo=0; S.emitter=null;
+    SFX.miss();
+    // 3.3.1 오류 식별 — 왜 실패했는지 문구로 명확히
+    const why = res.loop ? '거울 사이를 무한히 맴돌았습니다'
+                         : '초록 EXIT가 아닌 곳으로 나갔습니다';
     showFlash('MISS', why, 'var(--pink)');
+    say(`실패. ${why}. 남은 라이프 ${Math.max(0,S.life)}개.`);
     const board = $('board');
     board.classList.add('shake');
     setTimeout(()=>board.classList.remove('shake'),360);
@@ -509,23 +837,118 @@ function resolve(ok,res,cells,remain){
 function timeout(){
   if(S.phase!=='ready') return;
   S.phase='firing';
-  stopTimer(); clearAim(); dragging=false; gQuads.innerHTML='';
-  S.life--; S.combo=0; sFail();
-  showFlash('TIME UP','시간 초과','var(--pink)');
+  stopTimer(); clearAim(); dragging=false;
+  gQuads.innerHTML=''; gCur.innerHTML='';
+  S.life--; S.combo=0; S.emitter=null;
+  SFX.timeup();
+  showFlash('TIME UP','제한시간을 넘겼습니다','var(--pink)');
+  say(`시간 초과. 남은 라이프 ${Math.max(0,S.life)}개.`);
   updateHUD();
   setTimeout(()=>{ S.life<=0 ? gameOver() : nextLevel(); }, 900);
 }
 
+/* ============================ 피버 타임 ============================ */
+function startFever(){
+  S.phase='fever'; S.feverHits=0; S.feverEnd=performance.now()+FEVER_MS;
+  S.emitter=null;
+  gBeam.innerHTML=''; gEmit.innerHTML=''; gQuads.innerHTML=''; gCur.innerHTML='';
+  $('board').classList.add('fevermode','feverflash');
+  $('controls').classList.add('fevermode');
+  $('timebar').classList.add('fever');
+  $('hintText').innerHTML = '<b>아무 타일이나 마구 두드리세요!</b>';
+  setTimeout(()=>$('board').classList.remove('feverflash'),700);
+  SFX.feverGo();
+  showFlash('FEVER!','아무 타일이나 연타 · Space 연타','var(--fever)');
+  say('피버 타임! 아무 타일이나 연타하세요.');
+  updateControls();
+  feverTick();
+}
+
+function feverTick(){
+  const left = S.feverEnd - performance.now();
+  const f = Math.max(0, left/FEVER_MS);
+  $('timefill').style.transform = `scaleX(${f})`;
+  $('timelabel').textContent = 'FEVER ' + (left/1000).toFixed(1) + 's';
+  $('timebar').setAttribute('aria-valuenow', Math.round(f*100));
+  if(left<=0){ endFever(); return; }
+  S.raf = requestAnimationFrame(feverTick);
+}
+
+// 좌표를 주면 그 칸에서, 없으면 무작위 칸에서 튀도록 (키보드 연타 지원)
+function feverHit(clientX, clientY){
+  if(S.phase!=='fever') return;
+  let r,c;
+  if(clientX!=null){
+    const b=$('svg').getBoundingClientRect(), k=b.width/452;
+    const vx=(clientX-b.left)/k, vy=(clientY-b.top)/k;
+    c=Math.min(N-1,Math.max(0,Math.floor((vx-PAD)/STEP)));
+    r=Math.min(N-1,Math.max(0,Math.floor((vy-PAD)/STEP)));
+  }else{ r=rnd(N); c=rnd(N); }
+
+  S.feverHits++; S.combo++;
+  const gain = Math.round((30 + S.feverHits*6) * (1 + S.combo*0.15));
+  S.score += gain;
+  SFX.feverHit(S.feverHits);
+  spark(cx(c),cy(r),gain);
+  updateHUD();
+}
+
+function spark(x,y,gain){
+  const c1=mk('circle',{cx:x,cy:y,r:16,class:'spark'});
+  c1.style.transformOrigin=`${x}px ${y}px`;
+  if(!matchMedia('(prefers-reduced-motion:reduce)').matches)
+    c1.style.animation='sparkpop .45s ease-out forwards';
+  gFx.appendChild(c1);
+  const t=mk('text',{x,y:y-22,class:'fevertext','text-anchor':'middle'});
+  t.textContent='+'+gain;
+  gFx.appendChild(t);
+  setTimeout(()=>{ c1.remove(); t.remove(); }, 460);
+}
+
+function endFever(){
+  stopTimer();
+  S.phase='firing';                 // 게이지가 끝난 뒤 다음 레벨까지의 공백에 입력이 먹히지 않도록
+  $('board').classList.remove('fevermode');
+  $('controls').classList.remove('fevermode');
+  $('timebar').classList.remove('fever');
+  SFX.feverEnd();
+  showFlash('FEVER END', `${S.feverHits}히트 · 콤보 x${(1+S.combo*0.15).toFixed(2)}`, 'var(--gold)');
+  say(`피버 종료. ${S.feverHits}회 적중. 총 ${S.score}점.`);
+  setTimeout(()=>{ S.level++; SFX.levelup(); nextLevel(); }, 900);
+}
+
+/* ============================ 일시정지 (WCAG 2.2.2) ============================ */
+function togglePause(){
+  if(S.phase==='ready'){
+    S.phase='paused';
+    S.pauseLeft = Math.max(0, S.tEnd - performance.now());
+    stopTimer();
+    $('screenPause').classList.remove('hide');
+    $('btnPause').setAttribute('aria-pressed','true');
+    SFX.pause(); say('일시정지되었습니다.');
+  } else if(S.phase==='paused'){
+    S.phase='ready';
+    S.tEnd = performance.now() + S.pauseLeft;
+    $('screenPause').classList.add('hide');
+    $('btnPause').setAttribute('aria-pressed','false');
+    SFX.resume(); say('게임을 재개합니다.');
+    tick();
+  }
+}
+
 /* ============================ 흐름 ============================ */
 function nextLevel(){
-  stopTimer();                       // 재진입 시 이전 타이머 루프가 살아남지 않도록
+  stopTimer();
   const lv = genLevel(S.level);
   S.grid=lv.grid; S.exit=lv.exit; S.best=lv.best;
+  S.emitter=null; S.lastTickSec=-1;
+  $('hintText').innerHTML = '타일을 눌러 <b>설치</b> → 회전 → 발사';
   drawBoard();
-  updateHUD();
+  updateHUD(); updateControls();
   S.phase='ready';
   S.timeLimit = Math.max(6, 13 - S.level*0.4);
   S.tEnd = performance.now() + S.timeLimit*1000;
+  say(`레벨 ${S.level}. 목표 ${S.best}칸. 제한시간 ${S.timeLimit.toFixed(0)}초.`);
   tick();
 }
 
@@ -533,7 +956,12 @@ function tick(){
   const left = S.tEnd - performance.now();
   const f = Math.max(0, left/(S.timeLimit*1000));
   $('timefill').style.transform = `scaleX(${f})`;
-  $('timebar').classList.toggle('warn', f<0.34);
+  const warn = f<0.34;
+  $('timebar').classList.toggle('warn', warn);
+  $('timebar').setAttribute('aria-valuenow', Math.round(f*100));
+  $('timelabel').textContent = warn ? '남은 시간 ' + Math.max(0,left/1000).toFixed(1) + 's' : '';
+  const sec = Math.ceil(left/1000);
+  if(sec<=3 && sec>0 && sec!==S.lastTickSec){ S.lastTickSec=sec; SFX.tick(); }
   if(left<=0){ timeout(); return; }
   S.raf = requestAnimationFrame(tick);
 }
@@ -544,6 +972,7 @@ function updateHUD(){
   $('uiScore').textContent = S.score.toLocaleString();
   $('uiCombo').textContent = 'x'+(1+S.combo*0.15).toFixed(2);
   $('uiLife').textContent  = '●'.repeat(Math.max(0,S.life)) + '○'.repeat(Math.max(0,3-S.life));
+  $('uiLife').setAttribute('aria-label', `라이프 ${Math.max(0,S.life)} / 3`);
   $('uiBest').textContent  = S.best || '-';
 }
 
@@ -557,8 +986,9 @@ function showFlash(big,sub,color){
 
 function gameOver(){
   S.phase='over'; stopTimer(); clearAim(); dragging=false;
-  const prev = loadBest();
-  const record = S.score > prev;
+  S.emitter=null; drawEmitter(); gCur.innerHTML='';
+  SFX.gameover();
+  const prev = loadBest(), record = S.score > prev;
   if(record) saveBest(S.score);
   const best = Math.max(prev, S.score);
 
@@ -568,7 +998,10 @@ function gameOver(){
   ob.classList.toggle('rec', record);
   $('finalDetail').textContent = `LEVEL ${S.level} 도달`;
   $('screenOver').classList.remove('hide');
+  updateControls();
+  say(`게임 오버. 최종 ${S.score}점, 레벨 ${S.level} 도달.${record?' 신기록입니다.':''}`);
   refreshStartBest();
+  $('btnRetry').focus();
 }
 
 function refreshStartBest(){
@@ -577,20 +1010,83 @@ function refreshStartBest(){
 }
 
 function startGame(){
-  if(S.phase==='ready'||S.phase==='firing') return;   // 재진입 방지
+  if(S.phase==='ready'||S.phase==='firing'||S.phase==='fever') return;
   try{ ac().resume(); }catch(e){}
-  S.level=1; S.score=0; S.life=3; S.combo=0;
+  S.level=1; S.score=0; S.life=3; S.combo=0; S.cur={r:2,c:2};
   $('screenStart').classList.add('hide');
   $('screenOver').classList.add('hide');
+  $('screenPause').classList.add('hide');
+  $('btnPause').setAttribute('aria-pressed','false');
   nextLevel();
+  $('svg').focus();
 }
 
-$('btnStart').onclick = startGame;
-$('btnRetry').onclick = startGame;
+/* ============================ 도움말 / 소리 ============================ */
+function openHelp(){
+  if(S.phase==='ready') togglePause();
+  S.prevScreen = null;
+  $('screenHelp').classList.remove('hide');
+  $('btnHelpClose').focus();
+  SFX.btn();
+}
+function closeHelp(){
+  $('screenHelp').classList.add('hide');
+  SFX.btn();
+  $('btnHelp').focus();
+}
+function toggleSound(){
+  muted = !muted;
+  try{ localStorage.setItem(MUTE_KEY, muted?'1':'0'); }catch(e){}
+  $('btnSound').setAttribute('aria-pressed', muted?'false':'true');
+  $('soundLabel').textContent = muted ? '소리 끔' : '소리 켬';
+  if(!muted){ try{ ac().resume(); }catch(e){} SFX.btn(); }
+  say(muted?'소리를 껐습니다.':'소리를 켰습니다.');
+}
+
+/* ============================ 이벤트 ============================ */
+$('btnStart').onclick     = ()=>{ SFX.btn(); startGame(); };
+$('btnRetry').onclick     = ()=>{ SFX.btn(); startGame(); };
+$('btnRotL').onclick      = ()=> rotate(-1);
+$('btnRotR').onclick      = ()=> rotate(1);
+$('btnFire').onclick      = ()=> tryFire();
+$('btnPause').onclick     = ()=> togglePause();
+$('btnSound').onclick     = ()=> toggleSound();
+$('btnHelp').onclick      = ()=> openHelp();
+$('btnHelpClose').onclick = ()=> closeHelp();
+$('btnResume').onclick    = ()=> togglePause();
+
 addEventListener('keydown', e=>{
-  if(e.code==='Space'){ e.preventDefault(); if(S.phase==='idle'||S.phase==='over') startGame(); }
+  const helpOpen = !$('screenHelp').classList.contains('hide');
+  // 1.4.13 — 떠 있는 콘텐츠는 Esc로 닫힘
+  if(e.key==='Escape'){ if(helpOpen){ e.preventDefault(); closeHelp(); } return; }
+  if(helpOpen) return;
+
+  const k = e.key.toLowerCase();
+  if(k==='m'){ e.preventDefault(); toggleSound(); return; }
+  if(k==='h'){ e.preventDefault(); openHelp(); return; }
+  if(k==='p'){ e.preventDefault(); togglePause(); return; }
+
+  if(e.code==='Space'||e.key==='Enter'){
+    // 버튼에 포커스가 있으면 브라우저 기본 동작(버튼 활성화)에 맡긴다
+    if(e.target && e.target.closest && e.target.closest('button')) return;
+    e.preventDefault();
+    if(S.phase==='idle'||S.phase==='over'){ startGame(); return; }
+    if(e.key==='Enter' && S.phase==='ready'){ placeAtCursor(); return; }
+    tryFire();
+    return;
+  }
+  if(S.phase!=='ready') return;
+  if(k==='q'){ e.preventDefault(); rotate(-1); return; }
+  if(k==='e'){ e.preventDefault(); rotate(1);  return; }
+  if(k==='r'){ e.preventDefault(); rotate(e.shiftKey?-1:1); return; }
+  const move = {ArrowUp:[-1,0],ArrowDown:[1,0],ArrowLeft:[0,-1],ArrowRight:[0,1]}[e.key];
+  if(move){ e.preventDefault(); moveCursor(move[0],move[1]); }
 });
+
+$('btnSound').setAttribute('aria-pressed', muted?'false':'true');
+$('soundLabel').textContent = muted ? '소리 끔' : '소리 켬';
 refreshStartBest();
+updateControls();
 </script>
 </body>
 </html>
