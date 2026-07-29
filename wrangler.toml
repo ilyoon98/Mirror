@@ -15,5 +15,4 @@ binding = "ASSETS"
 [[d1_databases]]
 binding = "DB"
 database_name = "mirror-rush"
-# ↓ `wrangler d1 create mirror-rush` 를 실행하면 나오는 id 를 여기에 붙여넣으세요.
-database_id = "PASTE_YOUR_D1_DATABASE_ID_HERE"
+database_id = "a0f164d6-0aa0-4364-b9e8-c59ba3d43be7"
