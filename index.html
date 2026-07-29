@@ -172,7 +172,7 @@
 
   /* ---------- CONTROLS ---------- */
   .controls{display:grid;grid-template-columns:1fr 1.5fr 1fr;gap:.5rem}
-  .controls.sub{grid-template-columns:repeat(3,1fr)}
+  .controls.sub{grid-template-columns:repeat(auto-fit,minmax(4rem,1fr))}
   .ctl{
     min-height:2.75rem;                        /* 2.5.8 터치 타깃 */
     display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.1rem;
@@ -191,8 +191,12 @@
   .ctl.fire{border-color:var(--cyan);color:var(--cyan);background:rgba(61,240,255,.12)}
   .ctl.fire:hover{background:rgba(61,240,255,.24)}
   .ctl[aria-disabled="true"]{opacity:.45;border-color:var(--line-soft);color:var(--dim)}
-  .ctl.small{min-height:2.75rem;font-size:.75rem;font-weight:600;flex-direction:row;gap:.3rem;flex-wrap:wrap}
+  .ctl.small{min-height:2.75rem;font-size:.75rem;font-weight:600;flex-direction:row;gap:.3rem;
+    flex-wrap:wrap;padding:.35rem .25rem}
   .ctl[aria-pressed="false"].small{color:var(--dim)}
+  /* 좁은 화면·터치 기기에서는 단축키 표시를 접어 한 줄로 유지 */
+  @media (max-width:26rem){ .ctl.small kbd{display:none} .ctl.small{font-size:.6875rem} }
+  @media (hover:none){ .ctl kbd{display:none} }
   .controls.fevermode .ctl.fire{border-color:var(--fever);color:var(--fever);background:rgba(255,176,61,.18)}
 
   /* ---------- OVERLAYS ---------- */
@@ -262,11 +266,15 @@
     .stat .v{font-size:1rem}
     .footer{display:none}
   }
-  /* 2.2.2 / 모션 민감 사용자 — 애니메이션 제거 */
-  @media (prefers-reduced-motion:reduce){
-    .shake,.feverflash,.flash.show .big,.flash.show .sub{animation:none}
-    .flash.show .big,.flash.show .sub{opacity:1;transform:none}
-  }
+  /* 모션 민감 사용자 — 장식 애니메이션 제거.
+     초기값은 prefers-reduced-motion을 따르고, 연출 버튼으로 언제든 바꿀 수 있습니다.
+     (레이저 궤적 자체는 게임의 핵심 피드백이라 꺼지지 않고 짧아지기만 합니다) */
+  body.nofx .shake,
+  body.nofx .feverflash,
+  body.nofx .flash.show .big,
+  body.nofx .flash.show .sub{animation:none}
+  body.nofx .flash.show .big,
+  body.nofx .flash.show .sub{opacity:1;transform:none}
 </style>
 </head>
 <body>
@@ -346,6 +354,7 @@
         <dt>Space</dt><dd>발사</dd>
         <dt>P</dt><dd>일시정지 · 재개</dd>
         <dt>M</dt><dd>소리 켜기 · 끄기</dd>
+        <dt>F</dt><dd>발사 연출(머즐·충격파·파티클) 켜기 · 끄기</dd>
         <dt>Esc</dt><dd>이 창 닫기</dd>
         <dt>FEVER</dt><dd>1×5 레인. 출구(<b>EXIT</b>)가 매 판 <b>좌우 중 한쪽에 랜덤</b>으로 열리고
           반대쪽은 벽입니다. 거울은 빔을 막습니다.
@@ -391,6 +400,9 @@
     <button class="ctl small" id="btnSound" type="button" aria-pressed="true" aria-label="소리 켜기 또는 끄기, 단축키 M">
       <span class="ico" aria-hidden="true">♪</span><span id="soundLabel" aria-hidden="true">소리 켬</span><kbd aria-hidden="true">M</kbd>
     </button>
+    <button class="ctl small" id="btnFx" type="button" aria-pressed="true" aria-label="발사 연출 켜기 또는 끄기, 단축키 F">
+      <span class="ico" aria-hidden="true">✦</span><span id="fxLabel" aria-hidden="true">연출 켬</span><kbd aria-hidden="true">F</kbd>
+    </button>
     <button class="ctl small" id="btnHelp" type="button" aria-label="조작 방법 도움말 열기, 단축키 H">
       <span class="ico" aria-hidden="true">?</span><span aria-hidden="true">도움말</span><kbd aria-hidden="true">H</kbd>
     </button>
@@ -398,7 +410,7 @@
 
   <p id="live" class="sr-only" role="status" aria-live="polite"></p>
 
-  <p class="footer">거울 <span style="color:var(--ink)">╱ ╲</span> 에서 90° 반사 · 같은 자리를 맴돌면 실패 <span class="ver">v0.7</span></p>
+  <p class="footer">거울 <span style="color:var(--ink)">╱ ╲</span> 에서 90° 반사 · 같은 자리를 맴돌면 실패 <span class="ver">v0.8</span></p>
 </div>
 
 <script>
@@ -418,6 +430,7 @@ const rnd = n => Math.floor(Math.random()*n);
 const pick = a => a[rnd(a.length)];
 const BEST_KEY  = 'mirrorrush.best';
 const MUTE_KEY  = 'mirrorrush.mute';
+const FX_KEY    = 'mirrorrush.fx';
 const FEVER_EVERY = 5;         // 콤보 5의 배수마다 피버
 const FEVER_MS    = 6000;
 
@@ -451,6 +464,27 @@ const say = msg => { $('live').textContent = msg; };
 /* ============================ 저장 ============================ */
 function loadBest(){ try{ return +(localStorage.getItem(BEST_KEY)||0)||0; }catch(e){ return 0; } }
 function saveBest(v){ try{ localStorage.setItem(BEST_KEY, String(v)); }catch(e){} }
+
+/* ============================ 연출 설정 ============================ */
+/* 장식 연출(머즐·충격파 링·파티클·흔들림)의 on/off.
+   초기값은 OS의 prefers-reduced-motion을 따르되 사용자가 버튼으로 뒤집을 수 있습니다.
+   레이저 궤적 자체는 이 값과 무관하게 항상 재생됩니다(꺼지면 짧아지기만 함). */
+let fxOn = (()=>{
+  try{ const v=localStorage.getItem(FX_KEY); if(v!=null) return v==='1'; }catch(e){}
+  return !matchMedia('(prefers-reduced-motion:reduce)').matches;
+})();
+function applyFx(){
+  document.body.classList.toggle('nofx', !fxOn);
+  const b=$('btnFx');
+  if(b){ b.setAttribute('aria-pressed', fxOn?'true':'false');
+         $('fxLabel').textContent = fxOn?'연출 켬':'연출 끔'; }
+}
+function toggleFx(){
+  fxOn=!fxOn;
+  try{ localStorage.setItem(FX_KEY, fxOn?'1':'0'); }catch(e){}
+  applyFx(); SFX.btn();
+  say(fxOn?'발사 연출을 켰습니다.':'발사 연출을 껐습니다.');
+}
 
 /* ============================ 사운드 ============================ */
 let AC=null, MASTER=null;
@@ -811,9 +845,9 @@ function fire(r,c,d){
   const line = mk('path',{d:dstr,class:'beam'+(ok?'':' bad')});
   gBeam.appendChild(glow); gBeam.appendChild(line);
 
-  const reduce = matchMedia('(prefers-reduced-motion:reduce)').matches;
   const len = line.getTotalLength();
-  const dur = reduce ? 240 : Math.min(1300, Math.max(360, 74*(pts.length-1)));
+  // 궤적은 항상 날아갑니다. 연출을 끄면 짧아지기만 합니다.
+  const dur = fxOn ? Math.min(1300, Math.max(360, 74*(pts.length-1))) : 260;
 
   // 경로를 따라 이동음 + 거울에 닿을 때마다 반사음
   const seg = dur/Math.max(1,pts.length-1)/1000;
@@ -825,14 +859,10 @@ function fire(r,c,d){
   if(res.exit) SFX.exitHit(dur/1000);
 
   const finish = ()=> resolve(ok,res,res.path.length,remain);
-  if(reduce){
-    setTimeout(finish, dur+120);
-  }else{
-    muzzle(cx(c),cy(r));
-    flyBeam({line,glow,pts,len,dur,ok,
-      isMirror:i => { const cell=res.path[i]; return !!(cell && S.grid[cell[0]][cell[1]]); },
-      done:()=>setTimeout(finish,150)});
-  }
+  if(fxOn) muzzle(cx(c),cy(r));
+  flyBeam({line,glow,pts,len,dur,ok,
+    isMirror:i => { const cell=res.path[i]; return !!(cell && S.grid[cell[0]][cell[1]]); },
+    done:()=>setTimeout(finish, fxOn?150:60)});
 }
 
 /* ---------- 레이저 비행 연출 ----------
@@ -871,14 +901,16 @@ function flyBeam(o){
     head.setAttribute('cx',pt.x); head.setAttribute('cy',pt.y);
     halo.setAttribute('cx',pt.x); halo.setAttribute('cy',pt.y);
     while(next<pts.length && d>=cum[next]){
-      if(isMirror(next)) ring(pts[next][0],pts[next][1],'impact',.4);
+      if(fxOn && isMirror(next)) ring(pts[next][0],pts[next][1],'impact',.4);
       next++;
     }
     if(p<1){ S.beamRaf=requestAnimationFrame(step); return; }
     cleanup();
-    const last = pts[pts.length-1];
-    if(ok){ for(let i=0;i<3;i++) ring(last[0],last[1],'burst',.55,i*0.07,10+i*7); }
-    else fizzle(last[0],last[1]);
+    if(fxOn){
+      const last = pts[pts.length-1];
+      if(ok){ for(let i=0;i<3;i++) ring(last[0],last[1],'burst',.55,i*0.07,10+i*7); }
+      else fizzle(last[0],last[1]);
+    }
     o.done();
   }
   S.beamRaf = requestAnimationFrame(step);
@@ -1103,8 +1135,7 @@ function feverShoot(col){
   const line = mk('path',{d:dstr,class:'beam'+(r.ok?'':' bad')});
   gBeam.appendChild(glow); gBeam.appendChild(line);
 
-  const reduce = matchMedia('(prefers-reduced-motion:reduce)').matches;
-  const dur = reduce ? 90 : Math.max(150, 46*(pts.length-1));
+  const dur = fxOn ? Math.max(150, 46*(pts.length-1)) : 90;
 
   const finish = ()=>{
     if(S.phase!=='fever') return;
@@ -1127,13 +1158,10 @@ function feverShoot(col){
     newFeverRound();
   };
 
-  if(reduce){ setTimeout(finish, dur+60); }
-  else{
-    muzzle(ftcx(col),FCY);
-    flyBeam({line,glow,pts,dur,ok:r.ok,
-      isMirror:i => i<r.path.length && !!row[r.path[i]],
-      done:()=>setTimeout(finish,80)});
-  }
+  if(fxOn) muzzle(ftcx(col),FCY);
+  flyBeam({line,glow,pts,dur,ok:r.ok,
+    isMirror:i => i<r.path.length && !!row[r.path[i]],
+    done:()=>setTimeout(finish, fxOn?80:40)});
 }
 
 // 발사 버튼 / Space — 커서 위치에서 쏩니다 (키보드·버튼 경로)
@@ -1152,8 +1180,7 @@ function feverTick(){
 function spark(x,y,gain){
   const c1=mk('circle',{cx:x,cy:y,r:16,class:'spark'});
   c1.style.transformOrigin=`${x}px ${y}px`;
-  if(!matchMedia('(prefers-reduced-motion:reduce)').matches)
-    c1.style.animation='sparkpop .45s ease-out forwards';
+  if(fxOn) c1.style.animation='sparkpop .45s ease-out forwards';
   gFx.appendChild(c1);
   const t=mk('text',{x,y:y-22,class:'fevertext','text-anchor':'middle'});
   t.textContent='+'+gain;
@@ -1308,6 +1335,7 @@ $('btnRotR').onclick      = ()=> rotate(1);
 $('btnFire').onclick      = ()=> tryFire();
 $('btnPause').onclick     = ()=> togglePause();
 $('btnSound').onclick     = ()=> toggleSound();
+$('btnFx').onclick        = ()=> toggleFx();
 $('btnHelp').onclick      = ()=> openHelp();
 $('btnHelpClose').onclick = ()=> closeHelp();
 $('btnResume').onclick    = ()=> togglePause();
@@ -1320,6 +1348,7 @@ addEventListener('keydown', e=>{
 
   const k = e.key.toLowerCase();
   if(k==='m'){ e.preventDefault(); toggleSound(); return; }
+  if(k==='f'){ e.preventDefault(); toggleFx(); return; }
   if(k==='h'){ e.preventDefault(); openHelp(); return; }
   if(k==='p'){ e.preventDefault(); togglePause(); return; }
 
@@ -1354,6 +1383,7 @@ addEventListener('keydown', e=>{
 
 $('btnSound').setAttribute('aria-pressed', muted?'false':'true');
 $('soundLabel').textContent = muted ? '소리 끔' : '소리 켬';
+applyFx();
 refreshStartBest();
 updateControls();
 </script>
