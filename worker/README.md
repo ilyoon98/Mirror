@@ -1,5 +1,10 @@
 # MIRROR RUSH 배포하기
 
+> **현재 배포 주소: <https://mirror-rush.ilyoon362.workers.dev>**
+> D1 데이터베이스 `mirror-rush`(APAC)와 함께 이미 떠 있습니다.
+> 코드를 고친 뒤에는 저장소 최상위에서 `wrangler deploy` 한 줄이면 갱신됩니다.
+
+
 게임과 순위 서버를 **Cloudflare 한 곳에 같이** 올립니다.
 GitHub Pages나 Vercel은 필요 없습니다.
 
