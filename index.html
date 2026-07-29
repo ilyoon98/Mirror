@@ -327,7 +327,7 @@
         빈 타일을 눌러 <em>레이저를 설치</em>하고,<br>
         <em>회전</em>으로 방향을 맞춘 뒤 <em>발사</em>하세요.<br>
         <em>초록 EXIT</em>로 빠져나가면 클리어!<br>
-        콤보 5마다 <em>FEVER</em> — 1×5 레인에서 연사!
+        콤보 5마다 <em>FEVER</em> — 1×5 레인 양방향 연사!
       </p>
       <button class="btn" id="btnStart" type="button">START</button>
       <p class="bestrow" id="startBest"></p>
@@ -345,8 +345,10 @@
         <dt>P</dt><dd>일시정지 · 재개</dd>
         <dt>M</dt><dd>소리 켜기 · 끄기</dd>
         <dt>Esc</dt><dd>이 창 닫기</dd>
-        <dt>FEVER</dt><dd>1×5 레인. 출구는 항상 오른쪽 끝이고 거울은 빔을 막습니다.
-          가장 오른쪽 거울보다 오른쪽 타일에 설치해야 통과하고, 왼쪽에서 쏠수록 고득점입니다.</dd>
+        <dt>FEVER</dt><dd>1×5 레인. <b>양쪽 끝이 모두 출구</b>이고 거울은 빔을 막습니다.
+          타일을 누르면 방향을 고를 필요 없이 <b>좌우로 동시에 발사</b>됩니다.
+          거울 바깥쪽(왼쪽 끝·오른쪽 끝) 구역에서 쏘면 통과하고, 끝에서 멀수록 고득점입니다.
+          거울이 없는 레인에서는 양쪽이 다 뚫려 보너스가 붙습니다.</dd>
       </dl>
       <button class="btn" id="btnHelpClose" type="button">닫기</button>
     </div>
@@ -394,7 +396,7 @@
 
   <p id="live" class="sr-only" role="status" aria-live="polite"></p>
 
-  <p class="footer">거울 <span style="color:var(--ink)">╱ ╲</span> 에서 90° 반사 · 같은 자리를 맴돌면 실패 <span class="ver">v0.5</span></p>
+  <p class="footer">거울 <span style="color:var(--ink)">╱ ╲</span> 에서 90° 반사 · 같은 자리를 맴돌면 실패 <span class="ver">v0.6</span></p>
 </div>
 
 <script>
@@ -431,8 +433,8 @@ const S = {
   lastTickSec:-1
 };
 
-/* 피버 1×5 레인 기하 (452 viewBox 기준, 오른쪽에 EXIT 자리 확보) */
-const FPAD=18, FGAP=9, FTW=70.4, FTH=132, FROWY=(452-FTH)/2;
+/* 피버 1×5 레인 기하 (452 viewBox 기준, 좌·우 양쪽에 EXIT 자리 확보) */
+const FPAD=46, FGAP=9, FTW=64.8, FTH=132, FROWY=(452-FTH)/2;
 const ftx  = i => FPAD + i*(FTW+FGAP);
 const ftcx = i => ftx(i) + FTW/2;
 const FCY  = FROWY + FTH/2;
@@ -713,7 +715,7 @@ $('svg').addEventListener('pointerdown', e=>{
   if(S.phase==='fever'){
     const el = document.elementFromPoint(e.clientX, e.clientY);
     const t  = (el && el.closest) ? el.closest('.fhit') : null;
-    if(t){ e.preventDefault(); kbMode=false; drawFeverCursor(); feverInstall(+t.dataset.col); }
+    if(t){ e.preventDefault(); kbMode=false; drawFeverCursor(); feverShoot(+t.dataset.col); }
     return;
   }
   if(S.phase!=='ready') return;
@@ -777,7 +779,7 @@ function tryFire(){
 }
 function updateControls(){
   const fever = S.phase==='fever';
-  const on = fever ? (S.feverCol!=null && !S.feverBusy)
+  const on = fever ? !S.feverBusy
                    : (S.phase==='ready' && !!S.emitter);
   $('btnFire').setAttribute('aria-disabled', on?'false':'true');
   // 피버는 항상 오른쪽으로 발사하므로 회전이 필요 없습니다
@@ -787,7 +789,7 @@ function updateControls(){
 /* ============================ 발사 ============================ */
 function fire(r,c,d){
   S.phase='firing';
-  stopTimer(); clearAim(); dragging=false;
+  stopTimer(); stopBeam(); clearAim(); dragging=false;
   const remain = Math.max(0,(S.tEnd-performance.now())/1000);
   const res = simulate(S.grid,r,c,d);
   const ok  = res.exit === S.exit;
@@ -837,7 +839,7 @@ function fire(r,c,d){
 function flyBeam(o){
   const {line,glow,pts,dur,ok,isMirror} = o;
   const len = o.len!=null ? o.len : line.getTotalLength();
-  const token = ++S.beamToken;
+  const token = S.beamToken;      // 캡처만 — 같은 세대의 빔은 여러 개가 동시에 날 수 있습니다
 
   const cum=[0];
   for(let i=1;i<pts.length;i++)
@@ -964,38 +966,46 @@ function startFever(){
   $('board').classList.add('fevermode','feverflash');
   $('controls').classList.add('fevermode');
   $('timebar').classList.add('fever');
-  $('hintText').innerHTML = '<b>타일 선택 → 발사!</b> 출구는 항상 오른쪽';
+  $('hintText').innerHTML = '<b>타일만 누르면 양쪽으로 발사!</b>';
   setTimeout(()=>$('board').classList.remove('feverflash'),700);
   SFX.feverGo();
-  showFlash('FEVER!','왼쪽에서 쏠수록 고득점','var(--fever)');
-  say('피버 타임. 1×5 레인이 열렸습니다. 타일을 고르고 발사하세요. 출구는 항상 오른쪽 끝입니다.');
+  showFlash('FEVER!','타일만 누르면 양쪽으로 발사','var(--fever)');
+  say('피버 타임. 1×5 레인이 열렸습니다. 양쪽 끝이 모두 출구이고, 타일을 누르면 좌우로 동시에 발사됩니다.');
   newFeverRound();
   feverTick();
 }
 
-/* 피버 레인: 거울 1~2개를 0~3열에만 배치 → 4열은 항상 비어 있어 반드시 풀립니다.
-   한 줄이라 거울에 닿은 빔은 위/아래로 꺾여 그대로 이탈합니다(= 차단벽).       */
+/* 피버 레인: 거울 1~2개를 1~3열(안쪽)에만 배치.
+   → 0열은 항상 왼쪽으로, 4열은 항상 오른쪽으로 탈출 가능해 반드시 풀립니다.
+   한 줄이라 거울에 닿은 빔은 위/아래로 꺾여 그대로 이탈합니다(= 차단벽).
+   결과적으로 레인이 [왼쪽 탈출 구역 | 막힌 구간 | 오른쪽 탈출 구역]으로 갈립니다. */
 function genFeverRow(){
   const row=[null,null,null,null,null];
-  const cols=[0,1,2,3];
+  if(rnd(6)===0) return row;                 // 가끔 거울 없는 잭팟 레인 (양쪽 관통)
+  const cols=[1,2,3];
   for(let i=cols.length-1;i>0;i--){ const j=rnd(i+1); [cols[i],cols[j]]=[cols[j],cols[i]]; }
   const n = 1 + rnd(2);
   for(let i=0;i<n;i++) row[cols[i]] = Math.random()<0.5 ? '/' : '\\';
   return row;
 }
-// c열에서 오른쪽으로 발사했을 때의 경로
+// c열에서 양쪽으로 동시에 발사했을 때의 두 경로
 function feverSim(row,c){
-  const path=[c];
-  for(let i=c+1;i<5;i++){
-    path.push(i);
-    if(row[i]) return { path, ok:false, hit:i };
-  }
-  return { path, ok:true };
+  const scan = (step)=>{
+    const path=[c];
+    for(let i=c+step; i>=0 && i<5; i+=step){
+      path.push(i);
+      if(row[i]) return { path, ok:false, hit:i };
+    }
+    return { path, ok:true };
+  };
+  return { left:scan(-1), right:scan(1) };
 }
+// 거울에 부딪힌 빔이 꺾여 나가는 방향 (-1 위 / +1 아래)
+const deflectY = (m,dir) => REFLECT[m][dir]==='N' ? -1 : 1;
 
 function newFeverRound(){
   S.feverRow = genFeverRow();
-  S.feverCol = null; S.feverCur = 4; S.feverBusy = false;
+  S.feverCol = null; S.feverCur = 2; S.feverBusy = false;
   drawFeverRow(); updateControls();
 }
 
@@ -1015,12 +1025,14 @@ function drawFeverRow(){
     }
     gQuads.appendChild(mk('rect',{x,y:FROWY,width:FTW,height:FTH,rx:12,class:'fhit','data-col':i}));
   }
-  const ex = ftx(4)+FTW+8;
-  gExit.appendChild(mk('line',{x1:ex,y1:FCY-32,x2:ex,y2:FCY+32,class:'exitglow'}));
-  gExit.appendChild(mk('polygon',{
-    points:`${ex+22},${FCY} ${ex+7},${FCY-11} ${ex+7},${FCY+11}`,class:'exitarrow'}));
-  const t=mk('text',{x:ex+10,y:FCY-46,class:'exitlabel','text-anchor':'middle'});
-  t.textContent='EXIT'; gExit.appendChild(t);
+  // 양쪽 끝 EXIT
+  [[ftx(4)+FTW+8, 1], [ftx(0)-8, -1]].forEach(([ex,s])=>{
+    gExit.appendChild(mk('line',{x1:ex,y1:FCY-32,x2:ex,y2:FCY+32,class:'exitglow'}));
+    gExit.appendChild(mk('polygon',{
+      points:`${ex+s*22},${FCY} ${ex+s*7},${FCY-11} ${ex+s*7},${FCY+11}`,class:'exitarrow'}));
+    const t=mk('text',{x:ex+s*10,y:FCY-46,class:'exitlabel','text-anchor':'middle'});
+    t.textContent='EXIT'; gExit.appendChild(t);
+  });
   drawFeverEmitter(); drawFeverCursor();
 }
 
@@ -1033,7 +1045,9 @@ function drawFeverEmitter(){
   const x=ftcx(S.feverCol);
   gEmit.appendChild(mk('circle',{cx:x,cy:FCY,r:13,class:'emitter'}));
   gEmit.appendChild(mk('circle',{cx:x,cy:FCY,r:23,class:'emitring'}));
+  // 양쪽으로 동시에 나가므로 화살표도 양방향
   gEmit.appendChild(mk('polygon',{points:arrowPts(x,FCY,'E',38,13,20),class:'emitarrow'}));
+  gEmit.appendChild(mk('polygon',{points:arrowPts(x,FCY,'W',38,13,20),class:'emitarrow'}));
 }
 function drawFeverCursor(){
   gCur.innerHTML='';
@@ -1042,69 +1056,77 @@ function drawFeverCursor(){
     rx:14,class:'fcursor'}));
 }
 
-function feverInstall(col){
+/* 설치 = 발사. 방향은 고를 필요 없이 양쪽으로 동시에 나갑니다. */
+function feverShoot(col){
   if(S.phase!=='fever' || S.feverBusy) return;
-  if(S.feverRow[col]){
-    SFX.miss(); say('거울 칸에는 설치할 수 없습니다.');
-    return;
-  }
-  if(S.feverCol!==col){ S.feverCol=col; S.feverCur=col; SFX.place();
-    say(`${col+1}번 타일에 설치. ${5-col}칸 예상.`); }
-  drawFeverEmitter(); drawFeverCursor(); updateControls();
-}
-
-function feverFire(){
-  if(S.phase!=='fever' || S.feverBusy) return;
-  if(S.feverCol==null){
+  const row=S.feverRow;
+  if(row[col]){
     SFX.miss();
-    showFlash('!','먼저 타일을 골라 설치하세요','var(--gold)');
-    say('먼저 타일을 골라 설치하세요.');
+    showFlash('!','거울 칸에는 설치할 수 없습니다','var(--gold)');
+    say('거울 칸에는 설치할 수 없습니다.');
     return;
   }
-  S.feverBusy=true;
-  const row=S.feverRow, c=S.feverCol, res=feverSim(row,c);
-  SFX.fire();
+  S.feverCol=col; S.feverCur=col; S.feverBusy=true;
+  stopBeam();
+  drawFeverEmitter(); drawFeverCursor(); updateControls();
+  SFX.place(); SFX.fire();
 
-  const pts = res.path.map(i=>[ftcx(i),FCY]);
-  if(res.ok) pts.push([ftx(4)+FTW+42, FCY]);
-  else{
-    const dy = row[res.hit]==='/' ? -1 : 1;      // 한 줄이라 반사되면 그대로 위/아래로 이탈
-    pts.push([ftcx(res.hit), FCY + dy*(FTH/2+36)]);
-  }
-  const dstr = pts.map((p,i)=>(i?'L':'M')+p[0]+' '+p[1]).join(' ');
-  const glow = mk('path',{d:dstr,class:'beamglow'+(res.ok?'':' bad')});
-  const line = mk('path',{d:dstr,class:'beam'+(res.ok?'':' bad')});
-  gBeam.appendChild(glow); gBeam.appendChild(line);
-
+  const res = feverSim(row,col);
+  const sides = [
+    {r:res.left,  dir:'W', endX:ftx(0)-44},
+    {r:res.right, dir:'E', endX:ftx(4)+FTW+44}
+  ];
   const reduce = matchMedia('(prefers-reduced-motion:reduce)').matches;
-  const dur = reduce ? 90 : Math.max(150, 46*(pts.length-1));
+  let pending = sides.length;
+
+  const cellsL = res.left.ok  ? res.left.path.length  : 0;
+  const cellsR = res.right.ok ? res.right.path.length : 0;
+  const both   = res.left.ok && res.right.ok;
+  const cells  = cellsL + cellsR - (both?1:0);      // 발사 칸 중복 제거
 
   const finish = ()=>{
     if(S.phase!=='fever') return;
-    if(res.ok){
-      const cells=res.path.length;
+    if(cells>0){
       S.feverHits++; S.combo++;
-      const gain=Math.round((20 + cells*14 + S.feverHits*5) * (1 + S.combo*0.15));
-      S.score+=gain;
+      // 양쪽 출구라 경로가 짧아진 만큼 칸당 배점을 올려 선택 차이가 드러나게 합니다
+      const gain = Math.round((18 + cells*22 + S.feverHits*5) * (both?1.5:1) * (1 + S.combo*0.15));
+      S.score += gain;
       SFX.feverHit(S.feverHits);
-      spark(ftx(4)+FTW+20, FCY, gain);
+      if(both) SFX.perfect();
+      spark(ftcx(col), FCY-FTH/2-12, gain);
+      if(both) showFlash('양쪽 관통!', `${cells}칸 · +${gain}`, 'var(--gold)');
       updateHUD();
-      say(`${cells}칸 통과, ${gain}점.`);
+      say(`${both?'양쪽 관통. ':''}${cells}칸 통과, ${gain}점.`);
     }else{
       SFX.miss();
-      say('거울에 막혔습니다.');
+      say('양쪽 다 거울에 막혔습니다.');
     }
     newFeverRound();
   };
+  const oneDone = ()=>{ if(--pending===0) finish(); };
 
-  if(reduce){ setTimeout(finish, dur+60); }
-  else{
-    muzzle(ftcx(c),FCY);
-    flyBeam({line,glow,pts,dur,ok:res.ok,
-      isMirror:i => i<res.path.length && !!row[res.path[i]],
-      done:()=>setTimeout(finish,80)});
-  }
+  if(!reduce) muzzle(ftcx(col),FCY);
+
+  sides.forEach(({r,dir,endX})=>{
+    const pts = r.path.map(i=>[ftcx(i),FCY]);
+    if(r.ok) pts.push([endX, FCY]);
+    else pts.push([ftcx(r.hit), FCY + deflectY(row[r.hit],dir)*(FTH/2+36)]);
+
+    const dstr = pts.map((p,i)=>(i?'L':'M')+p[0]+' '+p[1]).join(' ');
+    const glow = mk('path',{d:dstr,class:'beamglow'+(r.ok?'':' bad')});
+    const line = mk('path',{d:dstr,class:'beam'+(r.ok?'':' bad')});
+    gBeam.appendChild(glow); gBeam.appendChild(line);
+
+    const dur = reduce ? 90 : Math.max(150, 46*(pts.length-1));
+    if(reduce){ setTimeout(oneDone, dur+60); return; }
+    flyBeam({line,glow,pts,dur,ok:r.ok,
+      isMirror:i => i<r.path.length && !!row[r.path[i]],
+      done:()=>setTimeout(oneDone,80)});
+  });
 }
+
+// 발사 버튼 / Space — 커서 위치에서 쏩니다 (키보드·버튼 경로)
+function feverFire(){ if(S.phase==='fever') feverShoot(S.feverCur); }
 
 function feverTick(){
   const left = S.feverEnd - performance.now();
@@ -1297,7 +1319,7 @@ addEventListener('keydown', e=>{
     if(S.phase==='idle'||S.phase==='over'){ startGame(); return; }
     if(e.key==='Enter'){
       if(S.phase==='ready'){ placeAtCursor(); return; }
-      if(S.phase==='fever'){ feverInstall(S.feverCur); return; }
+      if(S.phase==='fever'){ feverShoot(S.feverCur); return; }
     }
     tryFire();
     return;
