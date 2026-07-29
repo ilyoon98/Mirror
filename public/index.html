@@ -153,6 +153,17 @@
   .mline{stroke:#eef2ff;stroke-width:calc(6px * var(--k));stroke-linecap:round;filter:url(#soft)}
   .mline2{stroke:#7c88c8;stroke-width:calc(12px * var(--k));stroke-linecap:round;opacity:.45}
 
+  /* 소멸 타일 — 회색 X. 색이 아니라 모양으로 구분됩니다 */
+  .vbox{fill:#241a26;stroke:var(--dim);stroke-width:calc(2px * var(--k));stroke-dasharray:calc(5px * var(--k)) calc(4px * var(--k))}
+  .vx{stroke:var(--dim);stroke-width:calc(5px * var(--k));stroke-linecap:round}
+  /* 프리즘 — 다이아몬드 + 3방향 눈금 */
+  .pgem{fill:rgba(61,240,255,.14);stroke:var(--cyan);stroke-width:calc(2.5px * var(--k))}
+  .ptick{fill:var(--cyan);opacity:.8}
+  /* 단방향 거울 — 점선 반사면 + 통과 방향 화살표 */
+  .oline{stroke:#cfd8ff;stroke-width:calc(5px * var(--k));stroke-linecap:round;
+    stroke-dasharray:calc(7px * var(--k)) calc(5px * var(--k));opacity:.85}
+  .oarr{fill:var(--gold);opacity:.9}
+
   .exitglow{fill:none;stroke:var(--green);stroke-width:calc(4px * var(--k));
     stroke-linecap:round;filter:url(#glow)}
   .exitarrow{fill:var(--green);filter:url(#glow)}
@@ -170,6 +181,9 @@
     stroke-linecap:round;stroke-linejoin:round;opacity:.42;filter:url(#glow)}
   /* 1.4.1 — 실패 빔은 색뿐 아니라 점선으로도 구분 */
   .beam.bad,.beamglow.bad{stroke:var(--pink)}
+  /* 갈라진 갈래 중 점수를 못 낸 쪽은 흐리게 */
+  .beam.dim{opacity:.35}
+  .beamglow.dim{opacity:.15}
   .beam.bad{stroke-dasharray:calc(14px * var(--k)) calc(9px * var(--k))}
 
   /* 레이저 비행 연출 */
@@ -211,6 +225,12 @@
   /* ---------- CONTROLS ---------- */
   .controls{display:grid;grid-template-columns:1fr 1.5fr 1fr;gap:.5rem}
   .controls.sub{grid-template-columns:repeat(auto-fit,minmax(4rem,1fr))}
+  .controls.flip{grid-template-columns:1fr}
+  .ctl#btnFlip{flex-direction:row;gap:.4rem;min-height:2.5rem;
+    border-color:var(--gold);color:var(--gold);background:rgba(255,210,61,.12)}
+  .ctl#btnFlip:hover{background:rgba(255,210,61,.24)}
+  .ctl#btnFlip[aria-disabled="true"]{border-color:var(--line-soft);color:var(--dim);
+    background:transparent;opacity:.45}
   .ctl{
     min-height:2.75rem;                        /* 2.5.8 터치 타깃 */
     display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.1rem;
@@ -572,6 +592,13 @@
     </button>
   </div>
 
+  <div class="controls flip" role="group" aria-label="판 조작">
+    <button class="ctl" id="btnFlip" type="button"
+            aria-label="FLIP — 판의 모든 거울을 뒤집습니다. 판마다 한 번, 단축키 G">
+      <span class="ico" aria-hidden="true">⇄</span><span aria-hidden="true">FLIP 거울 전부 뒤집기</span><kbd aria-hidden="true">G</kbd>
+    </button>
+  </div>
+
   <div class="controls sub" role="group" aria-label="보조 기능">
     <button class="ctl small" id="btnPause" type="button" aria-pressed="false" aria-label="일시정지, 단축키 P">
       <span class="ico" aria-hidden="true">❚❚</span><span aria-hidden="true">일시정지</span><kbd aria-hidden="true">P</kbd>
@@ -643,7 +670,7 @@ const S = {
   feverRow:null, feverCol:null, feverCur:2, feverBusy:false, feverExit:'R',
   lastTickSec:-1,
   // ── 시드 / 리플레이 ──
-  seed:'', rng:null, mode:'daily',   // daily | free
+  seed:'', rng:null, mode:'daily', flipUsed:false,   // daily | free
   log:[],                            // 검증용 이벤트 로그 (core.replay 가 그대로 읽습니다)
   rank:0,                            // 시간 보너스를 뺀 랭킹 점수
   runId:null, startedAt:0
@@ -768,6 +795,14 @@ const SFX = {
                  noise({freq:3000,to:200,dur:.3,vol:.035}); },
   gameover:()=>{ [392,330,262,196].forEach((f,i)=>tone({freq:f,dur:.42,type:'sawtooth',vol:.06,at:i*.16}));
                  noise({freq:600,to:80,dur:.7,vol:.04,at:.1}); },
+  // 신규 기믹 — 기존 톤앤매너(짧은 프로시저럴 사운드)에 맞춥니다
+  flip:    ()=>{ [392,523,659].forEach((f,i)=>tone({freq:f,to:f*1.5,dur:.13,type:'triangle',vol:.05,at:i*.045}));
+                 noise({freq:900,to:4200,dur:.22,vol:.04}); },
+  absorb:  at=>{ tone({freq:300,to:60,dur:.26,type:'sine',vol:.055,at});
+                 noise({freq:1400,to:90,dur:.3,vol:.05,at}); },
+  prism:   ()=>{ [784,988,1175].forEach((f,i)=>tone({freq:f,dur:.16,type:'sine',vol:.04,at:i*.03}));
+                 noise({freq:5200,to:2600,dur:.14,vol:.03}); },
+  through: at=>  tone({freq:1180,to:1480,dur:.05,type:'sine',vol:.028,at}),
   pause:   ()=> tone({freq:520,to:300,dur:.1,type:'triangle',vol:.04}),
   resume:  ()=> tone({freq:300,to:640,dur:.1,type:'triangle',vol:.04})
 };
@@ -778,6 +813,52 @@ function arrowPts(x,y,d,L=25,W=9,B=12){
   const tx=x+dc*L, ty=y+dr*L, bx=x+dc*B, by=y+dr*B;
   const px=-dr, py=dc;
   return `${tx},${ty} ${bx+px*W},${by+py*W} ${bx-px*W},${by-py*W}`;
+}
+
+/* 타일 그리기 — 색에만 의존하지 않도록 모양·패턴으로 구분합니다 (WCAG 1.4.1)
+     거울    : 굵은 대각선
+     소멸(X) : 회색 X자 + 빗금
+     프리즘(P): 다이아몬드 외곽 + 3방향 눈금
+     단방향  : 점선 대각선 + 통과 가능한 쪽(위·왼쪽)에 들어가는 화살표 */
+function drawTile(x, y, t){
+  const p = CELL*0.18, mx = x+CELL/2, my = y+CELL/2;
+  const diag = f => f===MC.T.MIRROR_A
+    ? [x+p, y+CELL-p, x+CELL-p, y+p]
+    : [x+p, y+p, x+CELL-p, y+CELL-p];
+
+  if(MC.isMirror(t)){
+    const a = diag(t);
+    gCells.appendChild(mk('line',{x1:a[0],y1:a[1],x2:a[2],y2:a[3],class:'mline2'}));
+    gCells.appendChild(mk('line',{x1:a[0],y1:a[1],x2:a[2],y2:a[3],class:'mline'}));
+    return;
+  }
+  if(t === MC.T.VANISH){
+    const q = CELL*0.24;
+    gCells.appendChild(mk('rect',{x:x+CELL*0.1,y:y+CELL*0.1,
+      width:CELL*0.8,height:CELL*0.8,rx:6*K,class:'vbox'}));
+    gCells.appendChild(mk('line',{x1:x+q,y1:y+q,x2:x+CELL-q,y2:y+CELL-q,class:'vx'}));
+    gCells.appendChild(mk('line',{x1:x+CELL-q,y1:y+q,x2:x+q,y2:y+CELL-q,class:'vx'}));
+    return;
+  }
+  if(t === MC.T.PRISM){
+    const s = CELL*0.30;
+    gCells.appendChild(mk('polygon',{
+      points:`${mx},${my-s} ${mx+s},${my} ${mx},${my+s} ${mx-s},${my}`, class:'pgem'}));
+    // 갈라지는 3방향 느낌의 눈금
+    for(const d of ['N','E','W'])
+      gCells.appendChild(mk('polygon',{points:arrowPts(mx,my,d,CELL*0.42,3.5*K,CELL*0.34),class:'ptick'}));
+    return;
+  }
+  if(MC.isOneway(t)){
+    const a = diag(MC.onewayFace(t));
+    gCells.appendChild(mk('line',{x1:a[0],y1:a[1],x2:a[2],y2:a[3],class:'oline'}));
+    // 통과 가능한 진입 방향(위에서 아래로, 왼쪽에서 오른쪽으로)을 화살표로 알림
+    gCells.appendChild(mk('polygon',{
+      points:arrowPts(mx, y+CELL*0.17, 'S', CELL*0.13, 4*K, 0), class:'oarr'}));
+    gCells.appendChild(mk('polygon',{
+      points:arrowPts(x+CELL*0.17, my, 'E', CELL*0.13, 4*K, 0), class:'oarr'}));
+    return;
+  }
 }
 
 function drawBoard(){
@@ -791,10 +872,7 @@ function drawBoard(){
       class:'cellbg'+(m?' mirror':'')}));
 
     if(m){
-      const p = CELL*0.18;
-      const a = m==='/' ? [x+p, y+CELL-p, x+CELL-p, y+p] : [x+p, y+p, x+CELL-p, y+CELL-p];
-      gCells.appendChild(mk('line',{x1:a[0],y1:a[1],x2:a[2],y2:a[3],class:'mline2'}));
-      gCells.appendChild(mk('line',{x1:a[0],y1:a[1],x2:a[2],y2:a[3],class:'mline'}));
+      drawTile(x, y, m);
     } else {
       const mx=x+CELL/2, my=y+CELL/2;
       const tri = {
@@ -930,6 +1008,36 @@ function rotate(step){
   drawEmitter(); SFX.rotate();
   say(`${DNAME[S.emitter.d]} 방향.`);
 }
+/* FLIP — 판마다 1회. 모든 거울이 고정 규칙(/ ↔ \)으로 동시에 뒤집힙니다.
+   발사 전에만 쓸 수 있고, 쓴 뒤에도 발사 전이면 조준은 얼마든지 바꿀 수 있습니다. */
+function doFlip(){
+  if(S.phase!=='ready'){ SFX.btn(); return; }
+  if(S.flipUsed){
+    SFX.miss();
+    showFlash('!','FLIP은 판마다 한 번만 쓸 수 있습니다','var(--gold)');
+    say('FLIP은 판마다 한 번만 쓸 수 있습니다.');
+    return;
+  }
+  S.flipUsed = true;
+  S.log.push({k:'x'});
+  // 판 갱신은 코어에 맡깁니다 — 검증기가 같은 함수를 쓰므로 PERFECT 기준이 어긋나지 않습니다
+  const lv = MC.applyFlip({grid:S.grid, exits:S.exits, maxScore:S.maxScore}, N);
+  S.grid = lv.grid; S.maxScore = lv.maxScore;
+  drawBoard(); updateHUD(); updateControls();
+  SFX.flip();
+  showFlash('FLIP', '거울이 모두 뒤집혔습니다', 'var(--gold)');
+  say('거울이 모두 뒤집혔습니다. 경로를 다시 확인하세요.');
+}
+
+// 스크린리더용 타일 이름 — 색·모양을 못 봐도 무엇인지 알 수 있게
+function tileName(t){
+  if(!t) return '빈 칸';
+  if(t===MC.T.VANISH) return '장애물, 빔이 흡수됩니다';
+  if(t===MC.T.PRISM)  return '프리즘, 빔이 세 갈래로 갈라집니다';
+  if(MC.isOneway(t))  return '단방향 거울 '+MC.onewayFace(t)+', 위나 왼쪽에서 들어오면 통과합니다';
+  return '거울 '+t;
+}
+
 function needEmitter(){
   SFX.miss();
   showFlash('!','먼저 타일을 눌러 레이저를 설치하세요','var(--gold)');
@@ -941,16 +1049,15 @@ function moveCursor(dr,dc){
   S.cur.r=Math.min(N-1,Math.max(0,S.cur.r+dr));
   S.cur.c=Math.min(N-1,Math.max(0,S.cur.c+dc));
   drawCursor(); SFX.move();
-  const m=S.grid[S.cur.r][S.cur.c];
-  say(`${S.cur.r+1}행 ${S.cur.c+1}열 ${m?('거울 '+m):'빈 칸'}.`);
+  say(`${S.cur.r+1}행 ${S.cur.c+1}열 ${tileName(S.grid[S.cur.r][S.cur.c])}.`);
 }
 function placeAtCursor(){
   if(S.phase!=='ready') return;
   const {r,c}=S.cur;
   if(S.grid[r][c]){
     SFX.miss();
-    showFlash('!','거울 칸에는 설치할 수 없습니다','var(--gold)');
-    say('거울 칸에는 설치할 수 없습니다.');
+    showFlash('!','빈 칸에만 설치할 수 있습니다','var(--gold)');
+    say('빈 칸에만 설치할 수 있습니다.');
     return;
   }
   const d = S.emitter ? S.emitter.d : 'N';
@@ -971,6 +1078,8 @@ function updateControls(){
   $('btnFire').setAttribute('aria-disabled', on?'false':'true');
   // 피버는 항상 오른쪽으로 발사하므로 회전이 필요 없습니다
   [$('btnRotL'),$('btnRotR')].forEach(b=>b.setAttribute('aria-disabled', fever?'true':'false'));
+  const flipOK = S.phase==='ready' && !S.flipUsed;
+  $('btnFlip').setAttribute('aria-disabled', flipOK?'false':'true');
 }
 
 /* ============================ 발사 ============================ */
@@ -981,44 +1090,64 @@ function fire(r,c,d){
   const el = Math.max(0, Math.round(S.timeLimit*1000 - (S.tEnd-performance.now())));
   S.log.push({k:'s', r, c, d, e:el});
   const remain = Math.max(0,(S.tEnd-performance.now())/1000);
-  const res = simulate(S.grid,r,c,d);
-  const hit = S.exits.find(e=>e.key===res.exit) || null;   // 어느 출구로 나갔는가
-  const ok  = !!hit;
+  // 판정은 코어가 합니다 — 서버가 같은 함수로 재현해야 하므로 여기서 규칙을 복제하지 않습니다
+  const j = MC.judgeShot(S.grid, N, S.exits, r, c, d);
 
   gQuads.innerHTML=''; gCur.innerHTML='';
   SFX.fire();
+  if(j.splits>0) SFX.prism();
 
-  const pts = res.path.map(([pr,pc])=>[cx(pc),cy(pr)]);
-  if(res.exit){
-    const [er,ec,ed]=res.exit.split(',');
-    const [ddr,ddc]=DIRS[ed];
-    pts.push([cx(+ec)+ddc*(CELL/2+PAD*0.7), cy(+er)+ddr*(CELL/2+PAD*0.7)]);
-  }
-  const dstr = pts.map((p,i)=>(i?'L':'M')+p[0]+' '+p[1]).join(' ');
-
-  const tone_ = ok ? (hit.mult===2 ? ' gold' : '') : ' bad';
-  const glow = mk('path',{d:dstr,class:'beamglow'+tone_});
-  const line = mk('path',{d:dstr,class:'beam'+tone_});
-  gBeam.appendChild(glow); gBeam.appendChild(line);
-
-  const len = line.getTotalLength();
-  // 궤적은 항상 날아갑니다. 연출을 끄면 짧아지기만 합니다.
-  const dur = fxOn ? Math.min(1300, Math.max(360, 74*(pts.length-1))) : 260;
-
-  // 경로를 따라 이동음 + 거울에 닿을 때마다 반사음
-  const seg = dur/Math.max(1,pts.length-1)/1000;
-  let bounceIdx=0;
-  res.path.forEach(([pr,pc],i)=>{
-    SFX.travel(i, i*seg);
-    if(S.grid[pr][pc]) SFX.bounce(bounceIdx++, i*seg);
+  // 갈래별로 빔을 그립니다. 점수를 낸 갈래는 진하게, 나머지는 흐리게.
+  const bestBeam = j.ok
+    ? j.hits.reduce((a,b)=> b.path.length>a.path.length ? b : a)
+    : null;
+  const drawn = j.beams.map(b=>{
+    const pts = b.path.map(([pr,pc])=>[cx(pc),cy(pr)]);
+    if(b.exit){
+      const [er,ec,ed]=b.exit.split(',');
+      const [ddr,ddc]=DIRS[ed];
+      pts.push([cx(+ec)+ddc*(CELL/2+PAD*0.7), cy(+er)+ddr*(CELL/2+PAD*0.7)]);
+    }
+    const scored = j.ok && j.hits.includes(b);
+    const tone = !j.ok ? ' bad'
+               : scored ? (S.exits.find(e=>e.key===b.exit).mult===2 ? ' gold' : '')
+               : ' bad';
+    const dim = j.beams.length>1 && b!==bestBeam;
+    const dstr = pts.map((p,i)=>(i?'L':'M')+p[0]+' '+p[1]).join(' ');
+    const glow = mk('path',{d:dstr,class:'beamglow'+tone+(dim?' dim':'')});
+    const line = mk('path',{d:dstr,class:'beam'+tone+(dim?' dim':'')});
+    gBeam.appendChild(glow); gBeam.appendChild(line);
+    return {b, pts, glow, line, tone};
   });
-  if(res.exit) SFX.exitHit(dur/1000);
 
-  const finish = ()=> resolve(hit,res,res.path.length,remain);
+  const maxPts = Math.max(...drawn.map(x=>x.pts.length));
+  const dur = fxOn ? Math.min(1300, Math.max(360, 74*(maxPts-1))) : 260;
+
+  // 소리 — 가장 긴 갈래 기준으로 이동음·반사음
+  const main = drawn.reduce((a,b)=> b.pts.length>a.pts.length ? b : a);
+  const seg = dur/Math.max(1,main.pts.length-1)/1000;
+  let bounceIdx=0;
+  main.b.path.forEach(([pr,pc],i)=>{
+    SFX.travel(i, i*seg);
+    const t = S.grid[pr][pc];
+    if(MC.isMirror(t) || MC.isOneway(t)) SFX.bounce(bounceIdx++, i*seg);
+    if(t === MC.T.VANISH) SFX.absorb(i*seg);
+  });
+  if(j.ok) SFX.exitHit(dur/1000);
+
+  let pending = drawn.length;
+  const finish = ()=> resolve(j, remain);
+  const oneDone = ()=>{ if(--pending===0) setTimeout(finish, fxOn?150:60); };
+
   if(fxOn) muzzle(cx(c),cy(r));
-  flyBeam({line,glow,pts,len,dur,ok,tone:tone_,
-    isMirror:i => { const cell=res.path[i]; return !!(cell && S.grid[cell[0]][cell[1]]); },
-    done:()=>setTimeout(finish, fxOn?150:60)});
+  for(const x of drawn){
+    flyBeam({line:x.line, glow:x.glow, pts:x.pts, dur, ok:j.ok && j.hits.includes(x.b), tone:x.tone,
+      isMirror:i => { const cell=x.b.path[i];
+        if(!cell) return false;
+        const t = S.grid[cell[0]][cell[1]];
+        return MC.isMirror(t) || MC.isOneway(t) || t===MC.T.PRISM; },
+      done: oneDone});
+  }
 }
 
 /* ---------- 레이저 비행 연출 ----------
@@ -1102,18 +1231,20 @@ function fizzle(x,y){
   }
 }
 
-function resolve(hit,res,cells,remain){
-  if(hit){
+function resolve(j,remain){
+  if(j.ok){
     // 점수 계산은 코어가 담당합니다 (서버가 같은 식으로 재현해야 하므로)
-    const g = MC.shotGain({cells, mult:hit.mult, maxScore:S.maxScore, remain, combo:S.combo});
+    const g = MC.shotGain({base:j.base, maxScore:S.maxScore, remain, combo:S.combo});
     const perfect = g.perfect, gain = g.total;
     const mult = 1 + S.combo*0.15;
     S.score += gain; S.rank += g.rank; S.combo++;
     perfect ? SFX.perfect() : SFX.clear();
-    const via = hit.mult===2 ? 'EXIT ×2' : 'EXIT';
-    showFlash(perfect?'PERFECT!':'CLEAR',
-      `${via} · ${cells}칸 · x${mult.toFixed(2)} · +${gain}`, perfect?'var(--gold)':'var(--green)');
-    say(`${perfect?'퍼펙트':'클리어'}. ${via}로 ${cells}칸 통과, ${gain}점 획득. 총 ${S.score}점.`);
+    const via = j.mult===2 ? 'EXIT ×2' : 'EXIT';
+    const split = j.splitHits>1 ? ` · ${j.splitHits}갈래 관통` : '';
+    showFlash(perfect?'PERFECT!':(j.splitHits>1?'MULTI!':'CLEAR'),
+      `${via}${split} · ${j.cells}칸 · x${mult.toFixed(2)} · +${gain}`,
+      perfect?'var(--gold)':'var(--green)');
+    say(`${perfect?'퍼펙트':'클리어'}. ${via}로 ${j.cells}칸 통과${split}, ${gain}점 획득. 총 ${S.score}점.`);
     updateHUD();
     const fever = S.combo>0 && S.combo % FEVER_EVERY === 0;
     setTimeout(()=>{
@@ -1124,8 +1255,9 @@ function resolve(hit,res,cells,remain){
     S.life--; S.combo=0; S.emitter=null;
     SFX.miss();
     // 3.3.1 오류 식별 — 왜 실패했는지 문구로 명확히
-    const why = res.loop ? '거울 사이를 무한히 맴돌았습니다'
-                         : 'EXIT가 아닌 곳으로 나갔습니다';
+    const why = j.reason==='absorbed' ? '장애물에 흡수되었습니다'
+              : j.reason==='loop'     ? '거울 사이를 무한히 맴돌았습니다'
+                                      : 'EXIT가 아닌 곳으로 나갔습니다';
     showFlash('MISS', why, 'var(--pink)');
     say(`실패. ${why}. 남은 라이프 ${Math.max(0,S.life)}개.`);
     const board = $('board');
@@ -1381,7 +1513,7 @@ function nextLevel(){
   const grew = N !== prevN;
   const lv = genLevel(S.level);
   S.grid=lv.grid; S.exits=lv.exits; S.maxScore=lv.maxScore;
-  S.emitter=null; S.lastTickSec=-1;
+  S.emitter=null; S.lastTickSec=-1; S.flipUsed=false;
   S.cur={r:Math.min(S.cur.r,N-1), c:Math.min(S.cur.c,N-1)};
   $('hintText').innerHTML = '탭 <b>설치</b> · 한 번 더 <b>발사</b>';
   drawBoard();
@@ -1688,6 +1820,7 @@ $('btnCopy').onclick      = async ()=>{
 $('btnRotL').onclick      = ()=> rotate(-1);
 $('btnRotR').onclick      = ()=> rotate(1);
 $('btnFire').onclick      = ()=> tryFire();
+$('btnFlip').onclick      = ()=> doFlip();
 $('btnPause').onclick     = ()=> togglePause();
 $('btnSound').onclick     = ()=> toggleSound();
 $('btnFx').onclick        = ()=> toggleFx();
@@ -1713,6 +1846,7 @@ addEventListener('keydown', e=>{
   const k = e.key.toLowerCase();
   if(k==='m'){ e.preventDefault(); toggleSound(); return; }
   if(k==='f'){ e.preventDefault(); toggleFx(); return; }
+  if(k==='g'){ e.preventDefault(); doFlip(); return; }
   if(k==='h'){ e.preventDefault(); openHelp(); return; }
   if(k==='p'){ e.preventDefault(); togglePause(); return; }
 
