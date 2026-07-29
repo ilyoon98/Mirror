@@ -277,6 +277,36 @@
   .btn:hover{background:rgba(61,240,255,.28);box-shadow:0 0 22px rgba(61,240,255,.35)}
   .finalscore{font-size:2.875rem;font-weight:800;color:var(--gold);letter-spacing:.02em;line-height:1}
   .hintrow{font-size:.6875rem;color:var(--dim);letter-spacing:.05em}
+  .hintrow.bad{color:var(--pink)}
+  .btn.ghost{border-color:var(--line);background:transparent;color:var(--dim)}
+  .btn.ghost:hover{border-color:var(--cyan);color:var(--cyan);background:rgba(61,240,255,.12)}
+  .btn.tiny{margin:0;padding:.5rem .8rem;font-size:.75rem;letter-spacing:.06em;flex:none}
+  .modes{display:flex;gap:.5rem;flex-wrap:wrap;justify-content:center}
+
+  /* 기록 비교 */
+  .sharescore{margin:0;font-size:.875rem;color:var(--dim)}
+  .sharescore b{color:var(--gold);font-size:1.5rem;font-variant-numeric:tabular-nums}
+  .fld{font-size:.6875rem;color:var(--dim);letter-spacing:.05em;align-self:flex-start}
+  .row{display:flex;gap:.4rem;width:100%;max-width:22rem}
+  .inp{
+    flex:1;min-width:0;min-height:2.5rem;padding:.4rem .6rem;border-radius:.5rem;
+    border:1px solid var(--line);background:#0d0f20;color:var(--ink);
+    font-family:inherit;font-size:.75rem;
+  }
+  .inp:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+  .cmplist{
+    list-style:none;margin:.2rem 0 0;padding:0;width:100%;max-width:22rem;
+    font-size:.8125rem;
+  }
+  .cmplist li{
+    display:flex;align-items:center;gap:.5rem;padding:.35rem .5rem;border-radius:.4rem;
+    border:1px solid transparent;
+  }
+  .cmplist li.me{border-color:var(--cyan);background:rgba(61,240,255,.1)}
+  .cmplist .rk{width:1.2rem;color:var(--dim);font-weight:700;text-align:right}
+  .cmplist .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cmplist .sc{color:var(--gold);font-weight:700;font-variant-numeric:tabular-nums}
+  .cmplist .lv{color:var(--dim);font-size:.6875rem;width:2.6rem;text-align:right}
   .bestrow{font-size:.75rem;color:var(--gold);letter-spacing:.1em;font-weight:700}
   .bestrow.rec{color:var(--green)}
 
@@ -322,7 +352,7 @@
     <b>MIRROR RUSH</b>
     <span class="sub">거울 방 레이저</span>
     <button class="verbtn" id="btnVer" type="button"
-            aria-label="현재 버전 v1.0, 업데이트 내역 보기">v1.0</button>
+            aria-label="현재 버전 v1.1, 업데이트 내역 보기">v1.1</button>
   </h1>
 
   <div class="hud">
@@ -383,7 +413,11 @@
         <em>칸수 × 배수</em>가 큰 쪽을 골라야 고득점!<br>
         콤보 5마다 <em>FEVER</em> — 1×5 레인 연사!
       </p>
-      <button class="btn" id="btnStart" type="button">START</button>
+      <div class="modes">
+        <button class="btn" id="btnStartDaily" type="button">오늘의 판</button>
+        <button class="btn ghost" id="btnStartFree" type="button">자유 플레이</button>
+      </div>
+      <p class="hintrow" id="dailyInfo"></p>
       <p class="bestrow" id="startBest"></p>
       <p class="hintrow">키보드: 방향키 이동 · Q/E 회전 · Space 발사</p>
     </div>
@@ -415,6 +449,13 @@
     <div class="screen hide" id="screenLog">
       <h2>업데이트 내역</h2>
       <div class="loglist">
+        <h3>v1.1 <em>오늘의 판 · 기록 비교</em></h3>
+        <ul>
+          <li><b>오늘의 판</b> — 매일 전 세계가 같은 문제를 풉니다. 그래야 점수 비교가 성립합니다</li>
+          <li>게임이 <b>시드 기반</b>으로 바뀌어 같은 시드면 판이 완전히 똑같이 재현됩니다</li>
+          <li>결과 화면에서 <b>기록 코드</b>를 복사해 친구와 순위를 비교할 수 있습니다</li>
+          <li><b>랭킹 점수</b>는 시간 보너스를 뺀 값입니다. 보고된 시각은 검증할 수 없어 제외합니다</li>
+        </ul>
         <h3>v1.0 <em>방 확장 · 라이프 회복</em></h3>
         <ul>
           <li>레벨 13부터 <b>6×6</b>, 25부터 <b>7×7</b>로 방이 넓어집니다</li>
@@ -473,7 +514,33 @@
       <p class="bestrow" id="overBest"></p>
       <p id="finalDetail"></p>
       <button class="btn" id="btnRetry" type="button">RETRY</button>
+      <button class="btn ghost" id="btnOpenShare" type="button">기록 비교</button>
       <p class="hintrow">Space 키로도 재시작</p>
+    </div>
+
+    <div class="screen hide" id="screenShare">
+      <h2>기록 비교</h2>
+      <p class="hintrow" id="resSeed"></p>
+      <p class="sharescore">랭킹 점수 <b id="resRank">0</b></p>
+      <p class="hintrow">랭킹 점수는 <b>시간 보너스를 뺀</b> 값입니다.
+        보고된 시각은 검증할 수 없어 비교 기준에서 제외합니다.</p>
+
+      <label class="fld" for="resCode">내 기록 코드 — 복사해서 친구에게 보내세요</label>
+      <div class="row">
+        <input class="inp" id="resCode" readonly>
+        <button class="btn tiny" id="btnCopy" type="button">복사</button>
+      </div>
+      <p class="hintrow" id="resSelf"></p>
+
+      <label class="fld" for="cmpInput">친구 코드 붙여넣기</label>
+      <div class="row">
+        <input class="inp" id="cmpInput" placeholder="mr1|20260729|4820|17|…">
+        <button class="btn tiny" id="btnCmpAdd" type="button">추가</button>
+      </div>
+      <p class="hintrow" id="cmpMsg"></p>
+
+      <ol class="cmplist" id="cmpList"></ol>
+      <button class="btn" id="btnShareClose" type="button">닫기</button>
     </div>
   </div>
 
@@ -509,8 +576,14 @@
   <p class="footer">거울 <span style="color:var(--ink)">╱ ╲</span> 에서 90° 반사 · 같은 자리를 맴돌면 실패 · 레벨 13부터 방이 넓어집니다</p>
 </div>
 
+<script src="core.js"></script>
 <script>
 /* ============================ 상수 ============================ */
+/* 판 생성·시뮬레이션·점수는 core.js 한 곳에만 있습니다.
+   검증 서버가 같은 파일을 그대로 실행해 리플레이를 재현하기 때문에,
+   여기서 규칙을 복제하면 즉시 검증이 어긋납니다. */
+const MC = globalThis.MirrorCore;
+const { DIRS, DKEYS, REFLECT, FEVER_EVERY, FEVER_MS, MAX_LIFE, boardSizeFor } = MC;
 /* 방 크기는 레벨에 따라 커집니다. 5×5 안에서는 거울 13개·14칸·6초가 상한이라
    레벨 18쯤에서 난이도가 완전히 고정되어 버리기 때문입니다.
    칸 크기는 viewBox(452)에 맞춰 다시 계산하므로 보드는 항상 같은 크기로 보입니다. */
@@ -524,24 +597,22 @@ function setBoardSize(n){
   const sv = document.getElementById('svg');
   if(sv) sv.style.setProperty('--k', K.toFixed(3));
 }
-const boardSizeFor = lv => lv<13 ? 5 : lv<25 ? 6 : 7;
-const DIRS = { N:[-1,0], E:[0,1], S:[1,0], W:[0,-1] };
-const DKEYS = ['N','E','S','W'];                 // 시계 방향 순서
 const DNAME = { N:'위', E:'오른쪽', S:'아래', W:'왼쪽' };
-const REFLECT = {
-  '/' : { N:'E', E:'N', S:'W', W:'S' },
-  '\\': { N:'W', W:'N', S:'E', E:'S' }
-};
 const cx = c => PAD + c * STEP + CELL/2;
 const cy = r => PAD + r * STEP + CELL/2;
-const rnd = n => Math.floor(Math.random()*n);
-const pick = a => a[rnd(a.length)];
 const BEST_KEY  = 'mirrorrush.best';
 const MUTE_KEY  = 'mirrorrush.mute';
 const FX_KEY    = 'mirrorrush.fx';
-const FEVER_EVERY = 5;         // 콤보 5의 배수마다 피버
-const FEVER_MS    = 6000;
-const MAX_LIFE    = 3;
+const NICK_KEY  = 'mirrorrush.nick';
+const DAILY_KEY = 'mirrorrush.daily';   // {seed, rank, level}
+
+/* 코어 래퍼 — 호출부는 그대로 두고 시드 rng·현재 방 크기만 주입합니다 */
+const simulate  = (grid,r,c,d) => MC.simulate(grid, N, r, c, d);
+const genLevel  = lv          => MC.genLevel(S.rng, N, lv);
+const feverSim  = MC.feverSim;
+const feverBest = MC.feverBest;
+const rnd  = n => MC.rndOf(S.rng, n);
+const pick = a => MC.pickOf(S.rng, a);
 
 /* ============================ 상태 ============================ */
 const S = {
@@ -554,7 +625,12 @@ const S = {
   pauseLeft:0, prevScreen:null,
   feverEnd:0, feverHits:0,
   feverRow:null, feverCol:null, feverCur:2, feverBusy:false, feverExit:'R',
-  lastTickSec:-1
+  lastTickSec:-1,
+  // ── 시드 / 리플레이 ──
+  seed:'', rng:null, mode:'daily',   // daily | free
+  log:[],                            // 검증용 이벤트 로그 (core.replay 가 그대로 읽습니다)
+  rank:0,                            // 시간 보너스를 뺀 랭킹 점수
+  runId:null, startedAt:0
 };
 
 /* 피버 1×5 레인 기하 (452 viewBox 기준, 좌·우 양쪽에 EXIT 자리 확보) */
@@ -679,106 +755,6 @@ const SFX = {
   pause:   ()=> tone({freq:520,to:300,dur:.1,type:'triangle',vol:.04}),
   resume:  ()=> tone({freq:300,to:640,dur:.1,type:'triangle',vol:.04})
 };
-
-/* ============================ 시뮬레이션 ============================ */
-function simulate(grid, r, c, d){
-  const path=[[r,c]], seen=new Set();
-  for(let i=0;i<300;i++){
-    const key = r+','+c+','+d;
-    if(seen.has(key)) return { path, exit:null, loop:true };
-    seen.add(key);
-    const [dr,dc]=DIRS[d], nr=r+dr, nc=c+dc;
-    if(nr<0||nr>=N||nc<0||nc>=N) return { path, exit:r+','+c+','+d, loop:false };
-    r=nr; c=nc; path.push([r,c]);
-    const m=grid[r][c];
-    if(m) d = REFLECT[m][d];
-  }
-  return { path, exit:null, loop:true };
-}
-const countBounces = (grid,path) => path.reduce((n,[r,c])=> n + (grid[r][c]?1:0), 0);
-
-// 출구가 걸린 행/열에 거울이 최소 1개 있는가 (직선 정답 방지)
-function exitLineHasMirror(grid, exitKey){
-  const [r,c,d] = exitKey.split(',');
-  if(d==='N'||d==='S'){ for(let i=0;i<N;i++) if(grid[i][+c]) return true; }
-  else                { for(let i=0;i<N;i++) if(grid[+r][i]) return true; }
-  return false;
-}
-
-/* ============================ 맵 생성 ============================ */
-/* 출구를 2개 냅니다.
-   거울 반사는 가역적이라 출구 하나당 정답은 '역추적한 한 줄'과 그 뒷부분들뿐입니다.
-   그래서 경로 위에 수집물을 놓아도 길수록 무조건 이득이라 판단이 생기지 않습니다.
-   출구를 둘로 나눠야 비로소 서로 다른 두 줄이 생기고, 어느 쪽을 쏠지 고르게 됩니다.
-   긴 쪽은 ×1, 짧은 쪽은 ×2로 두어 '길이 vs 배수'를 매번 비교하게 만듭니다. */
-function genLevel(level){
-  // 상한을 방 넓이에 비례시켜, 방이 커지면 난이도도 다시 올라갑니다
-  const total       = N*N;
-  const mirrorCount = Math.min(4 + Math.floor(level*0.7), Math.floor(total*0.55));
-  const wantLen     = Math.min(5 + Math.floor(level/2), 14 + (N-5)*5);
-  const wantBounce  = Math.min(1 + Math.floor(level/4), 6);   // 정답 경로의 최소 반사 횟수
-
-  // 큰 방은 한 번의 시도 비용이 커서(7×7이면 92회 시뮬레이션) 기준을 일찍 완화합니다
-  const RELAX_AT = 120, MAX_TRY = 420;
-  for(let attempt=0; attempt<MAX_TRY; attempt++){
-    const grid = Array.from({length:N}, ()=>Array(N).fill(null));
-    const cells=[]; for(let r=0;r<N;r++) for(let c=0;c<N;c++) cells.push([r,c]);
-    for(let i=cells.length-1;i>0;i--){ const j=rnd(i+1); [cells[i],cells[j]]=[cells[j],cells[i]]; }
-    for(let i=0;i<mirrorCount;i++){ const [r,c]=cells[i]; grid[r][c] = Math.random()<0.5 ? '/' : '\\'; }
-
-    const byExit = new Map();
-    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
-      if(grid[r][c]) continue;
-      for(const d of DKEYS){
-        const res = simulate(grid,r,c,d);
-        if(!res.exit) continue;
-        const e = byExit.get(res.exit) || { count:0, best:0, bounce:0 };
-        e.count++;
-        if(res.path.length > e.best){ e.best = res.path.length; e.bounce = countBounces(grid,res.path); }
-        byExit.set(res.exit, e);
-      }
-    }
-
-    const relax = attempt > RELAX_AT;
-    const minLen    = relax ? Math.max(4, Math.round(wantLen*0.6)) : wantLen;
-    const maxSol    = relax ? 12 : 6;
-    const minBounce = relax ? 1  : wantBounce;
-
-    // 주 출구(×1): 길이·반사 품질 기준을 모두 만족
-    const mainCands=[], subCands=[];
-    for(const [exitKey,e] of byExit){
-      if(e.bounce < 1) continue;                  // 직선 정답은 어느 쪽도 허용하지 않음
-      if(!exitLineHasMirror(grid, exitKey)) continue;
-      if(e.count>=1 && e.count<=maxSol && e.best>=minLen && e.bounce>=minBounce)
-        mainCands.push({key:exitKey, best:e.best, bounce:e.bounce});
-      if(e.best>=3 && e.count<=maxSol+4)
-        subCands.push({key:exitKey, best:e.best, bounce:e.bounce});
-    }
-    if(!mainCands.length) continue;
-
-    const main = pick(mainCands);
-    // 보너스 출구(×2): 주 출구보다 반드시 짧아야 '길이 vs 배수' 비교가 성립합니다
-    const subs = subCands.filter(s => s.key!==main.key && s.best < main.best);
-    if(!subs.length) continue;
-    // 60%는 두 선택지의 점수가 팽팽해지도록 고릅니다.
-    // 그냥 무작위로 두면 고레벨에서 주 경로가 길어져 ×1이 늘 정답이 되어버립니다.
-    let sub;
-    if(subs.length>1 && Math.random()<0.6){
-      const near=[...subs].sort((a,b)=>
-        Math.abs(a.best*2-main.best)-Math.abs(b.best*2-main.best)).slice(0,3);
-      sub=pick(near);
-    } else sub=pick(subs);
-
-    main.mult=1; sub.mult=2;
-    const exits=[main,sub];
-    return { grid, exits, maxScore: Math.max(...exits.map(x=>x.best*x.mult))*10 };
-  }
-  // 안전망: 반사 1회를 보장한 고정 배치
-  const grid = Array.from({length:N},()=>Array(N).fill(null));
-  grid[2][4] = '/';
-  const exits=[{key:'0,4,N',best:6,bounce:1,mult:1},{key:'2,0,W',best:3,bounce:1,mult:2}];
-  return { grid, exits, maxScore:60 };
-}
 
 /* ============================ 렌더링 ============================ */
 function arrowPts(x,y,d,L=25,W=9,B=12){
@@ -985,6 +961,9 @@ function updateControls(){
 function fire(r,c,d){
   S.phase='firing';
   stopTimer(); stopBeam(); clearAim(); dragging=false;
+  // 검증용 로그 — 이 레벨 타이머 시작 후 경과 ms 를 기록합니다
+  const el = Math.max(0, Math.round(S.timeLimit*1000 - (S.tEnd-performance.now())));
+  S.log.push({k:'s', r, c, d, e:el});
   const remain = Math.max(0,(S.tEnd-performance.now())/1000);
   const res = simulate(S.grid,r,c,d);
   const hit = S.exits.find(e=>e.key===res.exit) || null;   // 어느 출구로 나갔는가
@@ -1109,13 +1088,11 @@ function fizzle(x,y){
 
 function resolve(hit,res,cells,remain){
   if(hit){
-    // 두 출구 중 어느 쪽을 얼마나 잘 뽑았는지로 판정합니다
-    const base    = cells*10*hit.mult;
-    const perfect = base >= S.maxScore;          // 이 판에서 가능한 최고 선택이었는가
-    const timeB   = Math.round(remain*8);
-    const mult    = 1 + S.combo*0.15;
-    const gain    = Math.round((base*(perfect?2:1) + timeB) * mult);
-    S.score += gain; S.combo++;
+    // 점수 계산은 코어가 담당합니다 (서버가 같은 식으로 재현해야 하므로)
+    const g = MC.shotGain({cells, mult:hit.mult, maxScore:S.maxScore, remain, combo:S.combo});
+    const perfect = g.perfect, gain = g.total;
+    const mult = 1 + S.combo*0.15;
+    S.score += gain; S.rank += g.rank; S.combo++;
     perfect ? SFX.perfect() : SFX.clear();
     const via = hit.mult===2 ? 'EXIT ×2' : 'EXIT';
     showFlash(perfect?'PERFECT!':'CLEAR',
@@ -1145,6 +1122,7 @@ function resolve(hit,res,cells,remain){
 
 function timeout(){
   if(S.phase!=='ready') return;
+  S.log.push({k:'t'});
   S.phase='firing';
   stopTimer(); clearAim(); dragging=false;
   gQuads.innerHTML=''; gCur.innerHTML='';
@@ -1174,45 +1152,13 @@ function startFever(){
   feverTick();
 }
 
-/* 피버 레인: 매 판 출구가 좌·우 중 한쪽으로 랜덤하게 열리고, 반대쪽은 벽입니다.
-   거울은 출구 반대쪽 끝 칸을 비워 두도록 배치해 어떤 레인이든 반드시 풀립니다.
-   (출구가 오른쪽이면 거울은 0~3열 → 4열은 항상 오른쪽으로 탈출 가능)
-   한 줄이라 거울에 닿은 빔은 위/아래로 꺾여 그대로 이탈합니다(= 차단벽).       */
-function genFeverRow(exit){
-  const row=[null,null,null,null,null];
-  if(rnd(7)===0) return row;                 // 가끔 거울 없는 레인 (최대 5칸)
-  const cols = exit==='R' ? [0,1,2,3] : [1,2,3,4];
-  for(let i=cols.length-1;i>0;i--){ const j=rnd(i+1); [cols[i],cols[j]]=[cols[j],cols[i]]; }
-  const n = 1 + rnd(2);
-  for(let i=0;i<n;i++) row[cols[i]] = Math.random()<0.5 ? '/' : '\\';
-  return row;
-}
-// c열에서 출구 방향으로 발사했을 때의 경로
-function feverSim(row,c,exit){
-  const step = exit==='R' ? 1 : -1;
-  const path=[c];
-  for(let i=c+step; i>=0 && i<5; i+=step){
-    path.push(i);
-    if(row[i]) return { path, ok:false, hit:i };
-  }
-  return { path, ok:true };
-}
-// 이 레인에서 낼 수 있는 최대 칸수 (= 최적 위치)
-function feverBest(row,exit){
-  let best=0;
-  for(let c=0;c<5;c++){
-    if(row[c]) continue;
-    const s=feverSim(row,c,exit);
-    if(s.ok && s.path.length>best) best=s.path.length;
-  }
-  return best;
-}
 // 거울에 부딪힌 빔이 꺾여 나가는 방향 (-1 위 / +1 아래)
 const deflectY = (m,dir) => REFLECT[m][dir]==='N' ? -1 : 1;
 
 function newFeverRound(){
-  S.feverExit = Math.random()<0.5 ? 'L' : 'R';     // 매 판 출구가 좌·우 중 랜덤
-  S.feverRow  = genFeverRow(S.feverExit);
+  // 레인 생성은 코어가 담당합니다 (rng 소비 순서가 검증 계약이므로 여기서 만들면 안 됩니다)
+  const r = MC.newFeverRound(S.rng);
+  S.feverExit = r.exit; S.feverRow = r.row;
   S.feverCol = null; S.feverCur = 2; S.feverBusy = false;
   drawFeverRow(); updateControls();
   say(`출구 ${S.feverExit==='R'?'오른쪽':'왼쪽'}.`);
@@ -1283,6 +1229,9 @@ function feverShoot(col){
     return;
   }
   S.feverCol=col; S.feverCur=col; S.feverBusy=true;
+  // 로그는 '실제로 처리된' 타격만 남겨야 합니다.
+  // 빔이 나는 동안 피버가 끝나면 아래 finish 가 그냥 반환하므로, 기록도 그때 남깁니다.
+  const shotAt = Math.max(0, Math.round(FEVER_MS - (S.feverEnd-performance.now())));
   stopBeam();
   drawFeverEmitter(); drawFeverCursor(); updateControls();
   SFX.place(); SFX.fire();
@@ -1303,13 +1252,15 @@ function feverShoot(col){
   const dur = fxOn ? Math.max(150, 46*(pts.length-1)) : 90;
 
   const finish = ()=>{
-    if(S.phase!=='fever') return;
+    if(S.phase!=='fever') return;          // 이미 피버가 끝났으면 이 발사는 무효 (로그도 남기지 않음)
+    S.log.push({k:'f', c:col, e:shotAt});
     if(r.ok){
       const cells   = r.path.length;
       const optimal = cells >= feverBest(row,exit);     // 그 레인의 최대 칸수를 뽑았는가
       S.feverHits++; S.combo++;
-      const gain = Math.round((18 + cells*22 + S.feverHits*5) * (optimal?1.5:1) * (1 + S.combo*0.15));
-      S.score += gain;
+      const g = MC.feverGain({cells, hits:S.feverHits, optimal, combo:S.combo});
+      const gain = g.total;
+      S.score += gain; S.rank += g.rank;
       SFX.feverHit(S.feverHits);
       if(optimal) SFX.perfect();
       feverPop(col, (optimal?'최적 ':'')+'+'+gain, optimal?'opt':'');
@@ -1370,6 +1321,7 @@ function spark(x,y,gain){
 
 function endFever(){
   stopTimer(); stopBeam();
+  S.log.push({k:'e'});              // 피버 종료 — 검증기가 레벨 진행을 맞추는 데 필요합니다
   S.phase='firing';                 // 게이지가 끝난 뒤 다음 레벨까지의 공백에 입력이 먹히지 않도록
   S.feverCol=null; S.feverRow=null; S.feverBusy=false; S.feverExit='R';
   $('board').classList.remove('fevermode');
@@ -1476,28 +1428,103 @@ function gameOver(){
   const ob = $('overBest');
   ob.textContent = record ? '★ 신기록!' : `BEST ${best.toLocaleString()}`;
   ob.classList.toggle('rec', record);
-  $('finalDetail').textContent = `LEVEL ${S.level} 도달`;
+  $('finalDetail').textContent = `LEVEL ${S.level} 도달 · 랭킹 점수 ${S.rank.toLocaleString()}`;
   $('screenOver').classList.remove('hide');
   updateControls();
   say(`게임 오버. 최종 ${S.score}점, 레벨 ${S.level} 도달.${record?' 신기록입니다.':''}`);
   refreshStartBest();
+  buildResult();
   $('btnRetry').focus();
 }
+
+/* ---------- 결과 공유 ----------
+   랭킹 점수(S.rank)는 시간 보너스를 뺀 값입니다.
+   클라이언트가 보고한 시각은 서버가 검증할 수 없어, 비교 기준에서 빼는 편이 정직합니다. */
+function buildResult(){
+  // 자기 검증 — 로그를 되돌려 점수가 맞는지 확인 (서버가 하는 일과 같은 계산)
+  const v = MC.replay(S.seed, S.log);
+  const okSelf = v.ok && v.rank === S.rank;
+  S.verify = v;
+
+  $('resSeed').textContent = S.mode==='daily' ? `오늘의 판 ${S.seed}` : `자유 플레이 ${S.seed}`;
+  $('resRank').textContent = S.rank.toLocaleString();
+  const code = MC.shareCode({seed:S.seed, rank:S.rank, level:S.level, nick:getNick()});
+  $('resCode').value = code;
+  $('resSelf').textContent = okSelf ? '자체 검증 통과' : `자체 검증 불일치 (${v.reason||v.rank})`;
+  $('resSelf').className = 'hintrow' + (okSelf?'':' bad');
+
+  // 오늘의 판 최고 기록 보관
+  if(S.mode==='daily'){
+    const d = loadDaily();
+    if(!d || d.seed!==S.seed || S.rank > d.rank)
+      saveDaily({seed:S.seed, rank:S.rank, level:S.level});
+  }
+  renderCompare();
+}
+
+function getNick(){
+  try{ const n=localStorage.getItem(NICK_KEY); if(n) return n; }catch(e){}
+  const n = '거울' + Math.floor(Math.random()*900+100);
+  try{ localStorage.setItem(NICK_KEY, n); }catch(e){}
+  return n;
+}
+function loadDaily(){ try{ return JSON.parse(localStorage.getItem(DAILY_KEY)||'null'); }catch(e){ return null; } }
+function saveDaily(v){ try{ localStorage.setItem(DAILY_KEY, JSON.stringify(v)); }catch(e){} }
+
+/* 친구 코드 비교 — 같은 시드일 때만 의미가 있으므로 시드가 다르면 알려줍니다 */
+const compareList = [];
+function addCompare(code){
+  const p = MC.parseShareCode(code);
+  const out = $('cmpMsg');
+  if(!p){ out.textContent = '코드 형식이 올바르지 않습니다.'; out.className='hintrow bad'; return; }
+  if(p.seed !== S.seed){
+    out.textContent = `다른 판의 기록입니다 (${p.seed}). 같은 판끼리만 비교됩니다.`;
+    out.className='hintrow bad'; return;
+  }
+  if(!compareList.some(x=>x.nick===p.nick && x.rank===p.rank)) compareList.push(p);
+  out.textContent = ''; $('cmpInput').value='';
+  renderCompare();
+}
+function renderCompare(){
+  const me = {nick:getNick()+' (나)', rank:S.rank, level:S.level, me:true};
+  const rows = [me, ...compareList].sort((a,b)=>b.rank-a.rank);
+  $('cmpList').innerHTML = rows.map((r,i)=>
+    `<li${r.me?' class="me"':''}><span class="rk">${i+1}</span>`
+    + `<span class="nm">${escapeHtml(r.nick||'익명')}</span>`
+    + `<span class="sc">${r.rank.toLocaleString()}</span>`
+    + `<span class="lv">Lv${r.level}</span></li>`).join('');
+}
+const escapeHtml = s => String(s).replace(/[&<>"']/g, c =>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 function refreshStartBest(){
   const b = loadBest();
   $('startBest').textContent = b ? `BEST ${b.toLocaleString()}` : '';
+  const seed = MC.dailySeed(Date.now()), d = loadDaily();
+  const y=seed.slice(0,4), m=seed.slice(4,6), dd=seed.slice(6,8);
+  $('dailyInfo').textContent = (d && d.seed===seed)
+    ? `${m}/${dd} 오늘의 판 최고 ${d.rank.toLocaleString()}점 (Lv${d.level})`
+    : `${m}/${dd} 오늘의 판 — 모두가 같은 문제를 풉니다`;
 }
 
-function startGame(){
+function startGame(mode){
   if(S.phase==='ready'||S.phase==='firing'||S.phase==='fever') return;
   try{ ac().resume(); }catch(e){}
+  if(mode) S.mode = mode;
+  // 오늘의 판은 전 세계가 같은 시드(UTC 날짜)를 씁니다. 자유 플레이는 매번 새 시드.
+  S.seed = S.mode==='daily'
+    ? MC.dailySeed(Date.now())
+    : 'f' + Date.now().toString(36) + Math.floor(Math.random()*1e6).toString(36);
+  S.rng  = MC.makeRng(S.seed);
+  S.log  = []; S.rank = 0; S.startedAt = Date.now();
   S.level=1; S.score=0; S.life=3; S.combo=0; S.cur={r:2,c:2};
   $('screenStart').classList.add('hide');
   $('screenOver').classList.add('hide');
   $('screenPause').classList.add('hide');
   $('screenLog').classList.add('hide');
   $('screenHelp').classList.add('hide');
+  $('screenShare').classList.add('hide');
+  compareList.length = 0;
   $('btnPause').setAttribute('aria-pressed','false');
   nextLevel();
   $('svg').focus();
@@ -1530,8 +1557,20 @@ function toggleSound(){
 }
 
 /* ============================ 이벤트 ============================ */
-$('btnStart').onclick     = ()=>{ SFX.btn(); startGame(); };
+$('btnStartDaily').onclick= ()=>{ SFX.btn(); startGame('daily'); };
+$('btnStartFree').onclick = ()=>{ SFX.btn(); startGame('free'); };
 $('btnRetry').onclick     = ()=>{ SFX.btn(); startGame(); };
+$('btnOpenShare').onclick = ()=>{ $('screenShare').classList.remove('hide'); $('btnShareClose').focus(); SFX.btn(); };
+$('btnShareClose').onclick= ()=>{ $('screenShare').classList.add('hide'); $('btnRetry').focus(); SFX.btn(); };
+$('btnCmpAdd').onclick    = ()=> addCompare($('cmpInput').value);
+$('cmpInput').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); addCompare(e.target.value); } });
+$('btnCopy').onclick      = async ()=>{
+  const el=$('resCode');
+  try{ await navigator.clipboard.writeText(el.value); }
+  catch(e){ el.select(); try{ document.execCommand('copy'); }catch(e2){} }
+  $('btnCopy').textContent='복사됨'; SFX.btn();
+  setTimeout(()=>$('btnCopy').textContent='복사',1200);
+};
 $('btnRotL').onclick      = ()=> rotate(-1);
 $('btnRotR').onclick      = ()=> rotate(1);
 $('btnFire').onclick      = ()=> tryFire();
@@ -1545,15 +1584,17 @@ $('btnLogClose').onclick  = ()=> closeLog();
 $('btnResume').onclick    = ()=> togglePause();
 
 addEventListener('keydown', e=>{
-  const helpOpen = !$('screenHelp').classList.contains('hide');
-  const logOpen  = !$('screenLog').classList.contains('hide');
+  const helpOpen  = !$('screenHelp').classList.contains('hide');
+  const logOpen   = !$('screenLog').classList.contains('hide');
+  const shareOpen = !$('screenShare').classList.contains('hide');
   // 1.4.13 — 떠 있는 콘텐츠는 Esc로 닫힘
   if(e.key==='Escape'){
     if(helpOpen){ e.preventDefault(); closeHelp(); }
     else if(logOpen){ e.preventDefault(); closeLog(); }
+    else if(shareOpen){ e.preventDefault(); $('btnShareClose').click(); }
     return;
   }
-  if(helpOpen || logOpen) return;
+  if(helpOpen || logOpen || shareOpen) return;
 
   const k = e.key.toLowerCase();
   if(k==='m'){ e.preventDefault(); toggleSound(); return; }
