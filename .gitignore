@@ -1,0 +1,5 @@
+# wrangler 로컬 캐시 (계정 정보가 들어갑니다 — 저장소에 올리지 않습니다)
+.wrangler/
+
+# 의존성
+node_modules/
