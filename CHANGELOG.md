@@ -86,6 +86,20 @@
   서버가 연결되지 않았을 때만 자동으로 펼쳐집니다.
 - `API_BASE`를 `window.MIRROR_API`로도 지정할 수 있게 해, 파일을 고치지 않고 시험할 수 있습니다.
 
+### 배포 구조 — Cloudflare 한 곳으로
+
+처음엔 "게임은 GitHub Pages, API는 Cloudflare"로 나눠 두었는데,
+그러면 계정도 둘, 배포도 둘, CORS 설정까지 필요합니다.
+Cloudflare Workers가 정적 파일도 서빙하므로 **한 곳에 같이 올리도록** 바꿨습니다.
+
+- 게임 파일을 `public/`으로 옮기고, Worker가 `/api/*` 외의 요청을 `env.ASSETS`로 넘깁니다.
+- `wrangler.toml`을 저장소 최상위로 옮겨 **`wrangler deploy` 한 번**이면 끝납니다.
+- 같은 출처가 되므로 **CORS 설정이 필요 없습니다.** `ALLOWED_ORIGINS`는
+  게임을 다른 곳에도 올릴 때만 쓰는 선택 항목이 됐습니다.
+- `API_BASE`를 손으로 채울 필요가 없어졌습니다. `http(s)`로 열렸으면 같은 출처의 `/api`를
+  자동으로 쓰고, `file://`로 열었으면 순위만 꺼집니다.
+  `file://`에서는 "파일로 연 상태라 순위를 쓸 수 없다"고 안내하고 코드 비교를 펼칩니다.
+
 ### 2단계 — 검증 리더보드 (worker/)
 
 `core.js`를 **그대로 import 하는** Cloudflare Worker + D1을 추가했습니다.

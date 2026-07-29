@@ -9,17 +9,20 @@
    클라이언트가 보고한 시각(e)은 검증할 수 없으므로,
    런 시작 시각을 서버가 직접 찍어 실제 경과 시간과 대조해 빈틈을 메웁니다.
    ============================================================ */
-import '../core.js';
+import '../public/core.js';
 const Core = globalThis.MirrorCore;
 
 const JSON_HEADERS = { 'content-type': 'application/json; charset=utf-8' };
 
+/* 게임과 API가 같은 주소에서 돌기 때문에 평소엔 CORS가 필요 없습니다.
+   다른 곳에 올린 게임에서도 부르고 싶을 때만 ALLOWED_ORIGINS 를 채우세요. */
 function cors(env, req){
   const origin = req.headers.get('Origin') || '';
   const allow  = (env.ALLOWED_ORIGINS || '').split(',').map(s=>s.trim()).filter(Boolean);
-  const ok = allow.length===0 || allow.includes(origin);
+  if(!allow.length) return {};                 // 같은 출처만 쓰는 기본 설정
+  if(!allow.includes(origin)) return { 'access-control-allow-origin': 'null' };
   return {
-    'access-control-allow-origin': ok ? (origin || '*') : 'null',
+    'access-control-allow-origin': origin,
     'access-control-allow-methods': 'GET,POST,OPTIONS',
     'access-control-allow-headers': 'content-type',
     'access-control-max-age': '86400'
@@ -143,7 +146,10 @@ export default {
       if(url.pathname==='/api/health')
         return json({ ok:true, protocol:Core.PROTOCOL, seed:Core.dailySeed(Date.now()) }, 200, hdr);
 
-      return json({ error:'not found' }, 404, hdr);
+      if(url.pathname.startsWith('/api/')) return json({ error:'not found' }, 404, hdr);
+
+      // /api/* 가 아니면 public/ 의 게임 파일을 그대로 내보냅니다
+      return env.ASSETS.fetch(req);
     }catch(e){
       return json({ error:'서버 오류: '+e.message }, 500, hdr);
     }

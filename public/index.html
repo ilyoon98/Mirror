@@ -1515,12 +1515,15 @@ const escapeHtml = s => String(s).replace(/[&<>"']/g, c =>
 /* ============================ 온라인 순위표 ============================
    API_BASE 를 비워 두면 전부 꺼진 채로 게임은 그대로 동작합니다(오프라인 모드).
    서버는 클라이언트 점수를 받지 않습니다 — 입력 로그만 보내고 서버가 직접 재생해 채점합니다. */
-// 배포한 Worker 주소를 넣으면 전체 순위가 켜집니다. 비우면 순위만 꺼진 채 게임은 그대로 동작합니다.
-// 예: 'https://mirror-rush-api.<계정>.workers.dev'
-let API_BASE = window.MIRROR_API || '';
+/* 게임과 API를 같은 주소에서 함께 배포하므로 설정할 것이 없습니다.
+   http(s) 로 열렸으면 같은 출처의 /api 를 쓰고, file:// 로 열었으면 순위만 꺼집니다.
+   다른 서버를 가리키려면 이 스크립트보다 먼저 window.MIRROR_API 를 지정하세요. */
+let API_BASE = (typeof window.MIRROR_API === 'string') ? window.MIRROR_API
+  : (location.protocol === 'http:' || location.protocol === 'https:') ? '' : null;
+const apiOn = () => API_BASE !== null;
 
 const api = async (path, opt)=>{
-  if(!API_BASE) throw new Error('offline');
+  if(!apiOn()) throw new Error('offline');
   const res = await fetch(API_BASE + path, {
     ...opt, headers:{'content-type':'application/json', ...(opt&&opt.headers)}
   });
@@ -1532,7 +1535,7 @@ const api = async (path, opt)=>{
 // 런 시작 — 서버가 시작 시각을 직접 찍습니다 (보고된 시각을 대조하는 기준)
 function apiStartRun(){
   S.runId = null; S.myEntry = null;
-  if(!API_BASE || S.mode!=='daily') return;
+  if(!apiOn() || S.mode!=='daily') return;
   api('/api/run', {method:'POST', body:JSON.stringify({mode:S.mode})})
     .then(r=>{ if(r.seed===S.seed) S.runId = r.runId; })   // 시드가 다르면 등재하지 않습니다
     .catch(()=>{});
@@ -1540,7 +1543,7 @@ function apiStartRun(){
 
 // 게임 오버 시 자동 등재. 서버는 점수가 아니라 입력 로그를 받아 직접 채점합니다.
 async function apiSubmit(){
-  if(!API_BASE || S.mode!=='daily' || !S.runId) return null;
+  if(!apiOn() || S.mode!=='daily' || !S.runId) return null;
   const runId = S.runId; S.runId = null;
   try{
     const r = await api('/api/submit', {method:'POST',
@@ -1570,11 +1573,11 @@ async function openBoard(){
 
   const list=$('bdList'), st=$('bdState'), off=$('bdOffline');
 
-  if(!API_BASE){
+  if(!apiOn()){
     list.innerHTML = '';
-    st.innerHTML = '<b>순위 서버가 아직 연결되지 않았습니다.</b><br>'
-      + 'worker/README.md 대로 배포한 뒤 index.html 의 API_BASE 를 채우면 '
-      + '여기에 전체 순위가 나옵니다.';
+    st.innerHTML = '<b>내 컴퓨터에서 파일로 연 상태라 순위를 쓸 수 없습니다.</b><br>'
+      + '배포한 주소로 접속하면 전체 순위가 자동으로 켜집니다. '
+      + '(배포 방법은 worker/README.md)';
     st.className = 'hintrow bad';
     off.open = true;                 // 그동안은 코드 비교로 대신합니다
     return;
