@@ -540,6 +540,12 @@
       <p class="hintrow" id="cmpMsg"></p>
 
       <ol class="cmplist" id="cmpList"></ol>
+
+      <div id="lbBox" class="hide" style="width:100%;max-width:22rem">
+        <p class="fld" style="margin:.6rem 0 .2rem">오늘의 판 순위 <span id="lbState"></span></p>
+        <ol class="cmplist" id="lbList"></ol>
+      </div>
+
       <button class="btn" id="btnShareClose" type="button">닫기</button>
     </div>
   </div>
@@ -1497,6 +1503,54 @@ function renderCompare(){
 const escapeHtml = s => String(s).replace(/[&<>"']/g, c =>
   ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
+/* ============================ 온라인 순위표 ============================
+   API_BASE 를 비워 두면 전부 꺼진 채로 게임은 그대로 동작합니다(오프라인 모드).
+   서버는 클라이언트 점수를 받지 않습니다 — 입력 로그만 보내고 서버가 직접 재생해 채점합니다. */
+const API_BASE = '';        // 예: 'https://mirror-rush-api.<계정>.workers.dev'
+
+const api = async (path, opt)=>{
+  if(!API_BASE) throw new Error('offline');
+  const res = await fetch(API_BASE + path, {
+    ...opt, headers:{'content-type':'application/json', ...(opt&&opt.headers)}
+  });
+  const data = await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(data.error || ('HTTP '+res.status));
+  return data;
+};
+
+// 런 시작 — 서버가 시작 시각을 직접 찍습니다 (보고된 시각을 대조하는 기준)
+function apiStartRun(){
+  S.runId = null;
+  if(!API_BASE || S.mode!=='daily') return;
+  api('/api/run', {method:'POST', body:JSON.stringify({mode:S.mode})})
+    .then(r=>{ if(r.seed===S.seed) S.runId = r.runId; })   // 시드가 다르면 등재하지 않습니다
+    .catch(()=>{});
+}
+
+async function apiSubmitAndShow(){
+  const box=$('lbBox'), st=$('lbState');
+  if(!API_BASE){ box.classList.add('hide'); return; }
+  box.classList.remove('hide');
+  if(S.mode!=='daily'){ st.textContent='— 자유 플레이는 등재되지 않습니다'; $('lbList').innerHTML=''; return; }
+  st.textContent='— 제출 중…';
+  try{
+    if(S.runId){
+      const r = await api('/api/submit', {method:'POST',
+        body:JSON.stringify({runId:S.runId, events:S.log})});
+      st.textContent = `— ${r.nick} · ${r.position}위`;
+      S.runId = null;
+    } else st.textContent = '';
+    const b = await api('/api/board?seed='+encodeURIComponent(S.seed)+'&limit=20');
+    $('lbList').innerHTML = (b.entries||[]).map((e,i)=>
+      `<li><span class="rk">${i+1}</span><span class="nm">${escapeHtml(e.nick||'익명')}</span>`
+      + `<span class="sc">${(e.rank||0).toLocaleString()}</span>`
+      + `<span class="lv">Lv${e.level||0}</span></li>`).join('') || '<li><span class="nm">아직 기록이 없습니다</span></li>';
+  }catch(err){
+    st.textContent = '— 등재 실패: ' + err.message;
+    $('lbList').innerHTML = '';
+  }
+}
+
 function refreshStartBest(){
   const b = loadBest();
   $('startBest').textContent = b ? `BEST ${b.toLocaleString()}` : '';
@@ -1517,6 +1571,7 @@ function startGame(mode){
     : 'f' + Date.now().toString(36) + Math.floor(Math.random()*1e6).toString(36);
   S.rng  = MC.makeRng(S.seed);
   S.log  = []; S.rank = 0; S.startedAt = Date.now();
+  apiStartRun();
   S.level=1; S.score=0; S.life=3; S.combo=0; S.cur={r:2,c:2};
   $('screenStart').classList.add('hide');
   $('screenOver').classList.add('hide');
@@ -1560,7 +1615,10 @@ function toggleSound(){
 $('btnStartDaily').onclick= ()=>{ SFX.btn(); startGame('daily'); };
 $('btnStartFree').onclick = ()=>{ SFX.btn(); startGame('free'); };
 $('btnRetry').onclick     = ()=>{ SFX.btn(); startGame(); };
-$('btnOpenShare').onclick = ()=>{ $('screenShare').classList.remove('hide'); $('btnShareClose').focus(); SFX.btn(); };
+$('btnOpenShare').onclick = ()=>{
+  $('screenShare').classList.remove('hide'); $('btnShareClose').focus(); SFX.btn();
+  apiSubmitAndShow();
+};
 $('btnShareClose').onclick= ()=>{ $('screenShare').classList.add('hide'); $('btnRetry').focus(); SFX.btn(); };
 $('btnCmpAdd').onclick    = ()=> addCompare($('cmpInput').value);
 $('cmpInput').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); addCompare(e.target.value); } });

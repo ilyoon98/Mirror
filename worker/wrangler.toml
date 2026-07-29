@@ -1,0 +1,12 @@
+name = "mirror-rush-api"
+main = "index.js"
+compatibility_date = "2026-01-01"
+
+# 게임 페이지의 출처만 허용합니다. 비워 두면 모든 출처를 허용하니 배포 전에 채우세요.
+[vars]
+ALLOWED_ORIGINS = "https://ilyoon98.github.io"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "mirror-rush"
+database_id = "여기에-wrangler-d1-create-로-받은-id-를-넣으세요"
