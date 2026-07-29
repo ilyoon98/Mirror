@@ -139,6 +139,17 @@
   .beam.bad,.beamglow.bad{stroke:var(--pink)}
   .beam.bad{stroke-dasharray:14 9}
 
+  /* 레이저 비행 연출 */
+  .beamhead{fill:#ffffff;filter:url(#glow)}
+  .beamhalo{fill:var(--cyan);opacity:.45;filter:url(#glow)}
+  .beamhalo.bad{fill:var(--pink)}
+  .impact{fill:none;stroke:#ffffff;stroke-width:3.5;opacity:.95}
+  .burst{fill:none;stroke:var(--green);stroke-width:3.5}
+  .muzzle{fill:#ffffff;filter:url(#glow)}
+  .fizz{fill:var(--pink)}
+  @keyframes ringpop{0%{transform:scale(.25);opacity:1}100%{transform:scale(2.4);opacity:0}}
+  @keyframes muzzlepop{0%{transform:scale(.4);opacity:.95}100%{transform:scale(1.9);opacity:0}}
+
   .emitter{fill:var(--cyan);filter:url(#glow)}
   .emitring{fill:none;stroke:var(--cyan);stroke-width:2.5;opacity:.85}
   .emitarrow{fill:var(--cyan);filter:url(#glow)}
@@ -374,7 +385,7 @@
 
   <p id="live" class="sr-only" role="status" aria-live="polite"></p>
 
-  <p class="footer">거울 <span style="color:var(--ink)">╱ ╲</span> 에서 90° 반사 · 같은 자리를 맴돌면 실패 <span class="ver">v0.3</span></p>
+  <p class="footer">거울 <span style="color:var(--ink)">╱ ╲</span> 에서 90° 반사 · 같은 자리를 맴돌면 실패 <span class="ver">v0.4</span></p>
 </div>
 
 <script>
@@ -404,7 +415,7 @@ const S = {
   emitter:null,            // {r,c,d} — 설치된 레이저
   cur:{r:2,c:2},           // 키보드 커서
   phase:'idle',            // idle | ready | firing | fever | paused | over
-  timeLimit:0, tEnd:0, raf:0,
+  timeLimit:0, tEnd:0, raf:0, beamRaf:0, beamToken:0,
   pauseLeft:0, prevScreen:null,
   feverEnd:0, feverHits:0,
   lastTickSec:-1
@@ -772,21 +783,7 @@ function fire(r,c,d){
 
   const reduce = matchMedia('(prefers-reduced-motion:reduce)').matches;
   const len = line.getTotalLength();
-  const dur = reduce ? 260 : Math.min(1250, Math.max(340, 68*(pts.length-1)));
-  if(!reduce){
-    [glow,line].forEach(el=>{
-      el.style.strokeDasharray = len;
-      el.style.strokeDashoffset = len;
-      el.style.transition = `stroke-dashoffset ${dur}ms linear`;
-    });
-    requestAnimationFrame(()=>{ glow.style.strokeDashoffset=0; line.style.strokeDashoffset=0; });
-    // 그려진 뒤 인라인 dash를 걷어내, 실패 빔의 점선 패턴(1.4.1)이 드러나게 한다
-    setTimeout(()=>{
-      [glow,line].forEach(el=>{
-        el.style.transition=''; el.style.strokeDasharray=''; el.style.strokeDashoffset='';
-      });
-    }, dur+20);
-  }
+  const dur = reduce ? 240 : Math.min(1300, Math.max(360, 74*(pts.length-1)));
 
   // 경로를 따라 이동음 + 거울에 닿을 때마다 반사음
   const seg = dur/Math.max(1,pts.length-1)/1000;
@@ -797,7 +794,91 @@ function fire(r,c,d){
   });
   if(res.exit) SFX.exitHit(dur/1000);
 
-  setTimeout(()=>resolve(ok,res,res.path.length,remain), dur+120);
+  const finish = ()=> resolve(ok,res,res.path.length,remain);
+  if(reduce){
+    setTimeout(finish, dur+120);
+  }else{
+    muzzle(cx(c),cy(r));
+    flyBeam({line,glow,pts,res,len,dur,ok,done:()=>setTimeout(finish,150)});
+  }
+}
+
+/* ---------- 레이저 비행 연출 ----------
+   선단(head)이 경로를 따라 날아가고, 빔은 그 뒤로 그려집니다.
+   거울을 지나는 순간마다 충격파 링, 출구 도달 시 폭발, 빗나가면 흩어집니다. */
+function flyBeam(o){
+  const {line,glow,pts,res,len,dur,ok} = o;
+  const token = ++S.beamToken;
+
+  const cum=[0];
+  for(let i=1;i<pts.length;i++)
+    cum.push(cum[i-1] + Math.hypot(pts[i][0]-pts[i-1][0], pts[i][1]-pts[i-1][1]));
+
+  line.style.strokeDasharray=len; line.style.strokeDashoffset=len;
+  glow.style.strokeDasharray=len; glow.style.strokeDashoffset=len;
+
+  const halo = mk('circle',{r:20,cx:pts[0][0],cy:pts[0][1],class:'beamhalo'+(ok?'':' bad')});
+  const head = mk('circle',{r:8,cx:pts[0][0],cy:pts[0][1],class:'beamhead'});
+  gFx.appendChild(halo); gFx.appendChild(head);
+
+  const cleanup = ()=>{
+    head.remove(); halo.remove();
+    line.style.strokeDasharray=''; line.style.strokeDashoffset='';
+    glow.style.strokeDasharray=''; glow.style.strokeDashoffset='';
+  };
+
+  let t0=null, next=1;
+  function step(ts){
+    if(S.beamToken!==token){ head.remove(); halo.remove(); return; }   // 새 발사/재시작이 끼어들면 중단
+    if(t0==null) t0=ts;
+    const p = Math.min(1,(ts-t0)/dur), d = p*len;
+    line.style.strokeDashoffset = len-d;
+    glow.style.strokeDashoffset = len-d;
+    const pt = line.getPointAtLength(d);
+    head.setAttribute('cx',pt.x); head.setAttribute('cy',pt.y);
+    halo.setAttribute('cx',pt.x); halo.setAttribute('cy',pt.y);
+    while(next<pts.length && d>=cum[next]){
+      const cell = res.path[next];
+      if(cell && S.grid[cell[0]][cell[1]]) ring(pts[next][0],pts[next][1],'impact',.4);
+      next++;
+    }
+    if(p<1){ S.beamRaf=requestAnimationFrame(step); return; }
+    cleanup();
+    const last = pts[pts.length-1];
+    if(ok){ for(let i=0;i<3;i++) ring(last[0],last[1],'burst',.55,i*0.07,10+i*7); }
+    else fizzle(last[0],last[1]);
+    o.done();
+  }
+  S.beamRaf = requestAnimationFrame(step);
+}
+function stopBeam(){ S.beamToken++; cancelAnimationFrame(S.beamRaf); S.beamRaf=0; }
+
+function ring(x,y,cls,sec,delay=0,r=12){
+  const c=mk('circle',{cx:x,cy:y,r,class:cls});
+  c.style.transformOrigin=`${x}px ${y}px`;
+  c.style.animation=`ringpop ${sec}s ease-out ${delay}s forwards`;
+  gFx.appendChild(c);
+  setTimeout(()=>c.remove(), (sec+delay)*1000+80);
+}
+function muzzle(x,y){
+  const c=mk('circle',{cx:x,cy:y,r:16,class:'muzzle'});
+  c.style.transformOrigin=`${x}px ${y}px`;
+  c.style.animation='muzzlepop .3s ease-out forwards';
+  gFx.appendChild(c);
+  setTimeout(()=>c.remove(),340);
+}
+function fizzle(x,y){
+  for(let i=0;i<7;i++){
+    const a=Math.PI*2*i/7, R=26;
+    const c=mk('circle',{cx:x,cy:y,r:4,class:'fizz'});
+    c.style.transition='transform .42s ease-out, opacity .42s ease-out';
+    gFx.appendChild(c);
+    requestAnimationFrame(()=>{
+      c.style.transform=`translate(${(Math.cos(a)*R).toFixed(1)}px,${(Math.sin(a)*R).toFixed(1)}px)`;
+      c.style.opacity='0';
+    });
+    setTimeout(()=>c.remove(),470);
+  }
 }
 
 function resolve(ok,res,cells,remain){
@@ -849,6 +930,7 @@ function timeout(){
 
 /* ============================ 피버 타임 ============================ */
 function startFever(){
+  stopBeam();
   S.phase='fever'; S.feverHits=0; S.feverEnd=performance.now()+FEVER_MS;
   S.emitter=null;
   gBeam.innerHTML=''; gEmit.innerHTML=''; gQuads.innerHTML=''; gCur.innerHTML='';
@@ -938,7 +1020,7 @@ function togglePause(){
 
 /* ============================ 흐름 ============================ */
 function nextLevel(){
-  stopTimer();
+  stopTimer(); stopBeam();
   const lv = genLevel(S.level);
   S.grid=lv.grid; S.exit=lv.exit; S.best=lv.best;
   S.emitter=null; S.lastTickSec=-1;
@@ -985,7 +1067,7 @@ function showFlash(big,sub,color){
 }
 
 function gameOver(){
-  S.phase='over'; stopTimer(); clearAim(); dragging=false;
+  S.phase='over'; stopTimer(); stopBeam(); clearAim(); dragging=false;
   S.emitter=null; drawEmitter(); gCur.innerHTML='';
   SFX.gameover();
   const prev = loadBest(), record = S.score > prev;
