@@ -303,6 +303,12 @@
     border:1px solid transparent;
   }
   .cmplist li.me{border-color:var(--cyan);background:rgba(61,240,255,.1)}
+  .fallback{width:100%;max-width:22rem;text-align:left;
+    border-top:1px solid var(--line);padding-top:.6rem;margin-top:.4rem}
+  .fallback summary{font-size:.75rem;color:var(--dim);cursor:pointer;letter-spacing:.04em}
+  .fallback summary:hover{color:var(--cyan)}
+  .fallback[open] summary{margin-bottom:.4rem}
+  .fallback > *:not(summary){margin-left:auto;margin-right:auto}
   .cmplist .rk{width:1.2rem;color:var(--dim);font-weight:700;text-align:right}
   .cmplist .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .cmplist .sc{color:var(--gold);font-weight:700;font-variant-numeric:tabular-nums}
@@ -351,6 +357,8 @@
   <h1 class="title">
     <b>MIRROR RUSH</b>
     <span class="sub">거울 방 레이저</span>
+    <button class="verbtn" id="btnBoard" type="button"
+            aria-label="오늘의 판 전체 순위 보기">순위</button>
     <button class="verbtn" id="btnVer" type="button"
             aria-label="현재 버전 v1.1, 업데이트 내역 보기">v1.1</button>
   </h1>
@@ -449,11 +457,13 @@
     <div class="screen hide" id="screenLog">
       <h2>업데이트 내역</h2>
       <div class="loglist">
-        <h3>v1.1 <em>오늘의 판 · 기록 비교</em></h3>
+        <h3>v1.1 <em>오늘의 판 · 전체 순위</em></h3>
         <ul>
           <li><b>오늘의 판</b> — 매일 전 세계가 같은 문제를 풉니다. 그래야 점수 비교가 성립합니다</li>
-          <li>게임이 <b>시드 기반</b>으로 바뀌어 같은 시드면 판이 완전히 똑같이 재현됩니다</li>
-          <li>결과 화면에서 <b>기록 코드</b>를 복사해 친구와 순위를 비교할 수 있습니다</li>
+          <li>우측 상단 <b>순위</b> 버튼에서 언제든 전체 순위를 볼 수 있습니다</li>
+          <li>게임이 끝나면 <b>자동으로 등재</b>되고 결과 화면에 전체 순위가 표시됩니다</li>
+          <li>게임이 <b>시드 기반</b>으로 바뀌어 같은 시드면 판이 완전히 똑같이 재현됩니다.
+              서버는 점수가 아니라 <b>입력 로그</b>를 받아 직접 재생해 채점합니다</li>
           <li><b>랭킹 점수</b>는 시간 보너스를 뺀 값입니다. 보고된 시각은 검증할 수 없어 제외합니다</li>
         </ul>
         <h3>v1.0 <em>방 확장 · 라이프 회복</em></h3>
@@ -514,37 +524,37 @@
       <p class="bestrow" id="overBest"></p>
       <p id="finalDetail"></p>
       <button class="btn" id="btnRetry" type="button">RETRY</button>
-      <button class="btn ghost" id="btnOpenShare" type="button">기록 비교</button>
+      <button class="btn ghost" id="btnOpenShare" type="button">순위 보기</button>
       <p class="hintrow">Space 키로도 재시작</p>
     </div>
 
-    <div class="screen hide" id="screenShare">
-      <h2>기록 비교</h2>
-      <p class="hintrow" id="resSeed"></p>
-      <p class="sharescore">랭킹 점수 <b id="resRank">0</b></p>
-      <p class="hintrow">랭킹 점수는 <b>시간 보너스를 뺀</b> 값입니다.
-        보고된 시각은 검증할 수 없어 비교 기준에서 제외합니다.</p>
+    <div class="screen hide" id="screenBoard">
+      <h2>오늘의 판 순위</h2>
+      <p class="hintrow" id="bdSeed"></p>
 
-      <label class="fld" for="resCode">내 기록 코드 — 복사해서 친구에게 보내세요</label>
-      <div class="row">
-        <input class="inp" id="resCode" readonly>
-        <button class="btn tiny" id="btnCopy" type="button">복사</button>
-      </div>
-      <p class="hintrow" id="resSelf"></p>
+      <ol class="cmplist" id="bdList"></ol>
+      <p class="hintrow" id="bdState"></p>
 
-      <label class="fld" for="cmpInput">친구 코드 붙여넣기</label>
-      <div class="row">
-        <input class="inp" id="cmpInput" placeholder="mr1|20260729|4820|17|…">
-        <button class="btn tiny" id="btnCmpAdd" type="button">추가</button>
-      </div>
-      <p class="hintrow" id="cmpMsg"></p>
+      <details class="fallback" id="bdOffline">
+        <summary>서버 없이 친구와 비교하기</summary>
+        <p class="hintrow">순위 서버가 연결되지 않았을 때 쓰는 방법입니다.
+          같은 판을 푼 사람끼리만 비교됩니다.</p>
 
-      <ol class="cmplist" id="cmpList"></ol>
+        <label class="fld" for="resCode">내 기록 코드</label>
+        <div class="row">
+          <input class="inp" id="resCode" readonly>
+          <button class="btn tiny" id="btnCopy" type="button">복사</button>
+        </div>
+        <p class="hintrow" id="resSelf"></p>
 
-      <div id="lbBox" class="hide" style="width:100%;max-width:22rem">
-        <p class="fld" style="margin:.6rem 0 .2rem">오늘의 판 순위 <span id="lbState"></span></p>
-        <ol class="cmplist" id="lbList"></ol>
-      </div>
+        <label class="fld" for="cmpInput">친구 코드 붙여넣기</label>
+        <div class="row">
+          <input class="inp" id="cmpInput" placeholder="mr1|20260729|4820|17|…">
+          <button class="btn tiny" id="btnCmpAdd" type="button">추가</button>
+        </div>
+        <p class="hintrow" id="cmpMsg"></p>
+        <ol class="cmplist" id="cmpList"></ol>
+      </details>
 
       <button class="btn" id="btnShareClose" type="button">닫기</button>
     </div>
@@ -1440,6 +1450,7 @@ function gameOver(){
   say(`게임 오버. 최종 ${S.score}점, 레벨 ${S.level} 도달.${record?' 신기록입니다.':''}`);
   refreshStartBest();
   buildResult();
+  apiSubmit();                    // 전체 순위에 자동 등재 (결과 화면에 순위를 바로 보여줍니다)
   $('btnRetry').focus();
 }
 
@@ -1452,8 +1463,6 @@ function buildResult(){
   const okSelf = v.ok && v.rank === S.rank;
   S.verify = v;
 
-  $('resSeed').textContent = S.mode==='daily' ? `오늘의 판 ${S.seed}` : `자유 플레이 ${S.seed}`;
-  $('resRank').textContent = S.rank.toLocaleString();
   const code = MC.shareCode({seed:S.seed, rank:S.rank, level:S.level, nick:getNick()});
   $('resCode').value = code;
   $('resSelf').textContent = okSelf ? '자체 검증 통과' : `자체 검증 불일치 (${v.reason||v.rank})`;
@@ -1506,7 +1515,9 @@ const escapeHtml = s => String(s).replace(/[&<>"']/g, c =>
 /* ============================ 온라인 순위표 ============================
    API_BASE 를 비워 두면 전부 꺼진 채로 게임은 그대로 동작합니다(오프라인 모드).
    서버는 클라이언트 점수를 받지 않습니다 — 입력 로그만 보내고 서버가 직접 재생해 채점합니다. */
-const API_BASE = '';        // 예: 'https://mirror-rush-api.<계정>.workers.dev'
+// 배포한 Worker 주소를 넣으면 전체 순위가 켜집니다. 비우면 순위만 꺼진 채 게임은 그대로 동작합니다.
+// 예: 'https://mirror-rush-api.<계정>.workers.dev'
+let API_BASE = window.MIRROR_API || '';
 
 const api = async (path, opt)=>{
   if(!API_BASE) throw new Error('offline');
@@ -1520,34 +1531,75 @@ const api = async (path, opt)=>{
 
 // 런 시작 — 서버가 시작 시각을 직접 찍습니다 (보고된 시각을 대조하는 기준)
 function apiStartRun(){
-  S.runId = null;
+  S.runId = null; S.myEntry = null;
   if(!API_BASE || S.mode!=='daily') return;
   api('/api/run', {method:'POST', body:JSON.stringify({mode:S.mode})})
     .then(r=>{ if(r.seed===S.seed) S.runId = r.runId; })   // 시드가 다르면 등재하지 않습니다
     .catch(()=>{});
 }
 
-async function apiSubmitAndShow(){
-  const box=$('lbBox'), st=$('lbState');
-  if(!API_BASE){ box.classList.add('hide'); return; }
-  box.classList.remove('hide');
-  if(S.mode!=='daily'){ st.textContent='— 자유 플레이는 등재되지 않습니다'; $('lbList').innerHTML=''; return; }
-  st.textContent='— 제출 중…';
+// 게임 오버 시 자동 등재. 서버는 점수가 아니라 입력 로그를 받아 직접 채점합니다.
+async function apiSubmit(){
+  if(!API_BASE || S.mode!=='daily' || !S.runId) return null;
+  const runId = S.runId; S.runId = null;
   try{
-    if(S.runId){
-      const r = await api('/api/submit', {method:'POST',
-        body:JSON.stringify({runId:S.runId, events:S.log})});
-      st.textContent = `— ${r.nick} · ${r.position}위`;
-      S.runId = null;
-    } else st.textContent = '';
-    const b = await api('/api/board?seed='+encodeURIComponent(S.seed)+'&limit=20');
-    $('lbList').innerHTML = (b.entries||[]).map((e,i)=>
-      `<li><span class="rk">${i+1}</span><span class="nm">${escapeHtml(e.nick||'익명')}</span>`
-      + `<span class="sc">${(e.rank||0).toLocaleString()}</span>`
-      + `<span class="lv">Lv${e.level||0}</span></li>`).join('') || '<li><span class="nm">아직 기록이 없습니다</span></li>';
+    const r = await api('/api/submit', {method:'POST',
+      body:JSON.stringify({runId, events:S.log})});
+    S.myEntry = r;
+    $('finalDetail').textContent =
+      `LEVEL ${S.level} 도달 · 랭킹 ${S.rank.toLocaleString()} · 전체 ${r.position}위`;
+    say(`전체 ${r.position}위로 등재됐습니다.`);
+    return r;
   }catch(err){
-    st.textContent = '— 등재 실패: ' + err.message;
-    $('lbList').innerHTML = '';
+    S.myEntry = { error: err.message };
+    return null;
+  }
+}
+
+/* 순위 패널 — 전체 순위가 주인공입니다.
+   서버가 연결되지 않았을 때만 코드 비교(대비책)를 펼쳐서 보여줍니다. */
+async function openBoard(){
+  if(S.phase==='ready') togglePause();
+  $('screenBoard').classList.remove('hide');
+  $('btnShareClose').focus();
+  SFX.btn();
+
+  const seed = (S.seed && S.mode==='daily') ? S.seed : MC.dailySeed(Date.now());
+  const y=seed.slice(0,4), m=seed.slice(4,6), d=seed.slice(6,8);
+  $('bdSeed').textContent = `${y}.${m}.${d} · 모두가 같은 문제를 풉니다`;
+
+  const list=$('bdList'), st=$('bdState'), off=$('bdOffline');
+
+  if(!API_BASE){
+    list.innerHTML = '';
+    st.innerHTML = '<b>순위 서버가 아직 연결되지 않았습니다.</b><br>'
+      + 'worker/README.md 대로 배포한 뒤 index.html 의 API_BASE 를 채우면 '
+      + '여기에 전체 순위가 나옵니다.';
+    st.className = 'hintrow bad';
+    off.open = true;                 // 그동안은 코드 비교로 대신합니다
+    return;
+  }
+  off.open = false;
+  st.className = 'hintrow';
+  st.textContent = '불러오는 중…';
+  try{
+    const b = await api('/api/board?seed='+encodeURIComponent(seed)+'&limit=20');
+    const mine = S.myEntry && !S.myEntry.error ? S.myEntry : null;
+    const rows = (b.entries||[]);
+    list.innerHTML = rows.length ? rows.map((e,i)=>{
+      const isMe = mine && e.nick===mine.nick && e.rank===mine.rank;
+      return `<li${isMe?' class="me"':''}><span class="rk">${i+1}</span>`
+        + `<span class="nm">${escapeHtml(e.nick||'익명')}</span>`
+        + `<span class="sc">${(e.rank||0).toLocaleString()}</span>`
+        + `<span class="lv">Lv${e.level||0}</span></li>`;
+    }).join('') : '<li><span class="nm">아직 기록이 없습니다. 첫 기록을 남겨보세요.</span></li>';
+    st.textContent = mine ? `내 기록 ${mine.rank.toLocaleString()}점 · 전체 ${mine.position}위 (${mine.nick})`
+      : (S.myEntry && S.myEntry.error ? '등재 실패: '+S.myEntry.error : '');
+    if(S.myEntry && S.myEntry.error) st.className='hintrow bad';
+  }catch(err){
+    list.innerHTML='';
+    st.textContent = '순위를 불러오지 못했습니다: ' + err.message;
+    st.className = 'hintrow bad';
   }
 }
 
@@ -1578,7 +1630,7 @@ function startGame(mode){
   $('screenPause').classList.add('hide');
   $('screenLog').classList.add('hide');
   $('screenHelp').classList.add('hide');
-  $('screenShare').classList.add('hide');
+  $('screenBoard').classList.add('hide');
   compareList.length = 0;
   $('btnPause').setAttribute('aria-pressed','false');
   nextLevel();
@@ -1615,11 +1667,12 @@ function toggleSound(){
 $('btnStartDaily').onclick= ()=>{ SFX.btn(); startGame('daily'); };
 $('btnStartFree').onclick = ()=>{ SFX.btn(); startGame('free'); };
 $('btnRetry').onclick     = ()=>{ SFX.btn(); startGame(); };
-$('btnOpenShare').onclick = ()=>{
-  $('screenShare').classList.remove('hide'); $('btnShareClose').focus(); SFX.btn();
-  apiSubmitAndShow();
+$('btnOpenShare').onclick = ()=> openBoard();
+$('btnBoard').onclick     = ()=> openBoard();
+$('btnShareClose').onclick= ()=>{
+  $('screenBoard').classList.add('hide'); SFX.btn();
+  ($('screenOver').classList.contains('hide') ? $('btnBoard') : $('btnRetry')).focus();
 };
-$('btnShareClose').onclick= ()=>{ $('screenShare').classList.add('hide'); $('btnRetry').focus(); SFX.btn(); };
 $('btnCmpAdd').onclick    = ()=> addCompare($('cmpInput').value);
 $('cmpInput').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); addCompare(e.target.value); } });
 $('btnCopy').onclick      = async ()=>{
@@ -1644,7 +1697,7 @@ $('btnResume').onclick    = ()=> togglePause();
 addEventListener('keydown', e=>{
   const helpOpen  = !$('screenHelp').classList.contains('hide');
   const logOpen   = !$('screenLog').classList.contains('hide');
-  const shareOpen = !$('screenShare').classList.contains('hide');
+  const shareOpen = !$('screenBoard').classList.contains('hide');
   // 1.4.13 — 떠 있는 콘텐츠는 Esc로 닫힘
   if(e.key==='Escape'){
     if(helpOpen){ e.preventDefault(); closeHelp(); }
