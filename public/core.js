@@ -10,7 +10,7 @@
 /* 로그 포맷 + 판 규칙 버전.
    규칙이 바뀌면 반드시 올립니다. 시드에도 들어가므로(dailySeed) 옛 규칙으로 등재된
    기록과 새 규칙의 판이 같은 순위표에서 섞이지 않습니다. */
-const PROTOCOL = 'mr3';
+const PROTOCOL = 'mr4';
 
 /* ---------------- 타일 종류 ----------------
    grid[r][c] 에 들어가는 값. null 은 빈 칸입니다. */
@@ -75,7 +75,16 @@ const timeLimitFor = (n,lv) => Math.max(6 + (n-5)*1.5, (13 + (n-5)*3) - lv*0.4);
 
 const FEVER_EVERY = 5;
 const FEVER_MS    = 6000;
-const MAX_LIFE    = 3;
+/* ---------------- 시간 규칙 (v1.6) ----------------
+   판마다 제한시간을 초기화하던 방식을 버리고 **런 전체가 하나의 시간 풀**을 씁니다.
+   시간이 0이 되면 그 자리에서 게임 오버이고, 라이프 개념은 없앴습니다.
+   틀린 발사의 대가는 '거기에 쓴 시간' 그 자체입니다.
+
+   시간은 **플레이어가 판을 보고 있는 동안에만** 흐릅니다.
+   빔이 나는 동안과 피버 구간에서는 줄지 않습니다. */
+const TIME_MAX       = 60000;   // 시작 시간 풀 (ms)
+const PERFECT_REGAIN = 2000;    // PERFECT 한 발마다 회복 (상한 TIME_MAX)
+const MAX_LIFE       = 3;       // 남겨둔 상수 — v1.6 부터 게임 진행에는 쓰지 않습니다
 
 /* ---------------- 빔 시뮬레이션 ----------------
    trace() 는 한 발이 만들어내는 '모든 갈래'를 돌려줍니다.
@@ -509,9 +518,12 @@ function feverBest(row,exit){
    랭킹 점수(rank)는 시간 보너스를 뺀 값입니다.
    시간 보너스는 클라이언트가 보고한 시각에 의존해 서버가 검증할 수 없기 때문입니다.
    화면에 보이는 점수(total)에는 그대로 포함됩니다. */
+/* remain 은 이제 **남은 전체 시간(초)** 입니다(예전에는 그 판의 남은 제한시간).
+   랭킹 점수(rank)에는 여전히 시간 보너스가 들어가지 않습니다 — 서버가 검증할 수 없는
+   값이라 비교 기준에서 빼는 편이 정직합니다. */
 function shotGain({base, maxScore, remain, combo}){
   const perfect = base >= maxScore;
-  const timeB   = Math.round(remain*8);
+  const timeB   = Math.round(remain*2);
   const m       = 1 + combo*0.15;
   const rank    = Math.round(base*(perfect?2:1) * m);
   return { perfect, rank, total: Math.round((base*(perfect?2:1) + timeB) * m) };
@@ -575,32 +587,31 @@ function feverGain({cells, hits, optimal, combo}){
    ok=false 면 reason 에 어긋난 지점이 담깁니다.                      */
 function replay(seed, events){
   const rng = makeRng(seed);
-  let level=1, life=MAX_LIFE, combo=0, rank=0, total=0;
+  let level=1, combo=0, rank=0, total=0;
   let mode='play';                    // play | fever
-  let lv=null, n=0, tLimit=0;
+  let lv=null, n=0;
   let fever=null, feverHits=0, feverRound=null;
   let playMs=0;                       // 재생상 소요된 최소 시간(초 단위 검증용)
+  let pool = TIME_MAX;                // 남은 전체 시간(ms). 0 이 되면 게임 오버
 
-  let flipped = false;                // 이 판에서 FLIP 을 이미 썼는가
   const loadLevel = ()=>{
     n = boardSizeFor(level);
     lv = genLevel(rng, n, level);
-    tLimit = timeLimitFor(n, level);
-    flipped = false;
   };
   const enterFever = ()=>{ mode='fever'; feverHits=0; fever=0; feverRound=newFeverRound(rng); };
   const leaveFever = ()=>{
-    if(feverHits>0 && life<MAX_LIFE) life++;
+    // 피버는 시간을 깎지 않습니다(보상 자체가 '공짜 시간'). 라이프 회복은 없앴습니다.
     playMs += FEVER_MS;
     mode='play'; level++; loadLevel();
   };
   const fail = reason => ({ ok:false, reason, rank, total, level });
+  const done = () => ({ ok:true, rank, total, level, playMs, reason:null });
 
   loadLevel();
 
   for(let i=0;i<events.length;i++){
     const ev = events[i];
-    if(life<=0) return fail('라이프가 0인데 이벤트가 더 있음 @'+i);
+    if(pool<=0) return fail('시간이 0인데 이벤트가 더 있음 @'+i);
 
     if(mode==='fever'){
       if(ev.k==='e'){ leaveFever(); continue; }
@@ -621,15 +632,7 @@ function replay(seed, events){
       continue;
     }
 
-    if(ev.k==='t'){                          // 시간 초과
-      // 실패해도 레벨은 오르지 않습니다(같은 레벨의 새 판). 클라이언트와 반드시 같아야 합니다.
-      life--; combo=0; playMs += tLimit*1000; loadLevel();
-      if(life<=0){ return { ok:true, rank, total, level, reason:null }; }
-      continue;
-    }
-    if(ev.k==='x'){                          // FLIP — 판마다 1회, 발사 전에만
-      if(flipped) return fail('FLIP 을 두 번 썼습니다 @'+i);
-      flipped = true;
+    if(ev.k==='x'){                          // FLIP — v1.6 부터 횟수 제한 없음
       lv = applyFlip(lv, n);
       continue;
     }
@@ -639,22 +642,26 @@ function replay(seed, events){
     if(r<0||r>=n||c<0||c>=n) return fail('칸 범위 밖 @'+i);
     if(lv.grid[r][c]) return fail('빈 칸이 아닌 곳에서 발사 @'+i);
     if(!DIRS[d]) return fail('방향 값이 잘못됨 @'+i);
-    if(!(ev.e>=0 && ev.e<=tLimit*1000+250)) return fail('발사 시각 범위 밖 @'+i);
+    // e = 이 판을 보며 쓴 시간(ms). 남은 시간보다 오래 걸렸다면 불가능한 발사입니다.
+    if(!(ev.e>=0)) return fail('발사 시각이 음수 @'+i);
+    if(ev.e > pool + 250) return fail('남은 시간보다 오래 걸린 발사 @'+i);
+    pool -= ev.e;
     playMs += ev.e;
 
     const j = judgeShot(lv.grid, n, lv.exits, r, c, d);
     if(j.ok){
-      const remain = Math.max(0, tLimit - ev.e/1000);
-      const g = shotGain({base:j.base, maxScore:lv.maxScore, remain, combo});
+      const g = shotGain({base:j.base, maxScore:lv.maxScore, remain:Math.max(0,pool)/1000, combo});
       rank += g.rank; total += g.total; combo++;
+      if(g.perfect) pool = Math.min(TIME_MAX, pool + PERFECT_REGAIN);   // 회복은 최대치를 못 넘습니다
       if(combo % FEVER_EVERY === 0) enterFever();
       else { level++; loadLevel(); }
     }else{
-      life--; combo=0; loadLevel();          // 실패 시 레벨 유지 (클라이언트와 동일)
-      if(life<=0) return { ok:true, rank, total, level, reason:null };
+      // 실패해도 레벨은 오르지 않습니다(같은 레벨의 새 판). 대가는 거기에 쓴 시간입니다.
+      combo=0; loadLevel();
     }
+    if(pool<=0) return done();                // 시간이 다 되면 그 자리에서 끝
   }
-  return { ok:true, rank, total, level, playMs, reason:null };
+  return done();
 }
 
 /* ---------------- 공유 코드 ----------------
@@ -700,7 +707,7 @@ function freeSeed(nowMs, rand){
 const isFreeSeed = s => typeof s==='string' && s.startsWith(PROTOCOL+'-f');
 
 const API = {
-  PROTOCOL, FEVER_EVERY, FEVER_MS, MAX_LIFE, DIRS, DKEYS, OPP, REFLECT, T,
+  PROTOCOL, FEVER_EVERY, FEVER_MS, MAX_LIFE, TIME_MAX, PERFECT_REGAIN, DIRS, DKEYS, OPP, REFLECT, T,
   isMirror, isOneway, onewayPasses, onewayFace, flipGrid, applyFlip,
   hashSeed, makeRng, rndOf, pickOf,
   boardSizeFor, timeLimitFor, trace, simulate, countBounces, genLevel,

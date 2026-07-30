@@ -303,7 +303,16 @@
   .btn.tiny{margin:0;padding:.5rem .8rem;font-size:.75rem;letter-spacing:.06em;flex:none}
   .modes{display:flex;gap:.5rem;flex-wrap:wrap;justify-content:center}
   /* 이름 입력 — 순위표에 그대로 올라가는 값이라 시작 화면에 둡니다 */
-  .namebox{width:100%;max-width:16rem;display:flex;flex-direction:column;gap:.25rem}
+  /* 홈 화면 */
+  .pitch{margin:0;font-size:.9375rem;line-height:1.7;color:#cfd6ff}
+  .homemenu{display:flex;gap:.4rem;flex-wrap:wrap;justify-content:center;
+    border-top:1px solid var(--line);padding-top:.7rem;margin-top:.2rem;width:100%;max-width:20rem}
+  /* 튜토리얼 */
+  .tutbody{width:100%;max-width:22rem;text-align:left;font-size:.8125rem;line-height:1.8;color:#cfd6ff}
+  .tutbody b{color:var(--cyan)}
+  .tutbody .fig{display:block;margin:.5rem auto;font-family:ui-monospace,monospace;
+    font-size:1rem;letter-spacing:.35em;color:#e8ecff;text-align:center}
+  .namebox{width:100%;max-width:20rem;display:flex;flex-direction:column;gap:.25rem}
   .namebox .fld{text-align:left}
   .namebox .inp{flex:1;text-align:center;font-size:.875rem}
   .namebox .hintrow{text-align:left;line-height:1.5}
@@ -338,6 +347,16 @@
   .cmplist .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .cmplist .sc{color:var(--gold);font-weight:700;font-variant-numeric:tabular-nums}
   .cmplist .lv{color:var(--dim);font-size:.6875rem;width:2.6rem;text-align:right}
+  /* v1.6 이펙트 */
+  .fx-mirror{fill:none;stroke:#cfd8ff;stroke-width:2.5;opacity:.85}
+  .fx-prism{fill:none;stroke:var(--fever,#c98bff);stroke-width:3;opacity:.9}
+  .fx-absorb{fill:var(--pink)}
+  .floatgain{position:absolute;left:50%;top:-.1rem;transform:translateX(-50%);
+    font-size:.8125rem;font-weight:800;color:var(--green);pointer-events:none;
+    animation:floatup .9s ease-out forwards}
+  @keyframes floatup{0%{opacity:0;transform:translate(-50%,4px)}
+    25%{opacity:1}100%{opacity:0;transform:translate(-50%,-18px)}}
+  .stat{position:relative}
   .bestrow{font-size:.75rem;color:var(--gold);letter-spacing:.1em;font-weight:700}
   .bestrow.rec{color:var(--green)}
 
@@ -416,8 +435,8 @@
       <div class="v score" id="uiScore" aria-labelledby="kScore">0</div></div>
     <div class="stat"><div class="k" id="kCombo">COMBO</div>
       <div class="v combo" id="uiCombo" aria-labelledby="kCombo">x1.00</div></div>
-    <div class="stat"><div class="k" id="kLife">LIFE</div>
-      <div class="v life" id="uiLife" aria-labelledby="kLife">●●●</div></div>
+    <div class="stat"><div class="k" id="kLife">TIME</div>
+      <div class="v life" id="uiLife" aria-labelledby="kLife">60.0</div></div>
   </div>
 
   <div class="timebar" id="timebar" role="progressbar" aria-label="남은 시간"
@@ -459,24 +478,7 @@
 
     <div class="screen" id="screenStart">
       <h2>MIRROR RUSH</h2>
-      <p>
-        5×5 방에 <em>거울</em>이 대각선으로 놓여 있습니다.<br>
-        빈 타일을 눌러 <em>레이저를 설치</em>하고,<br>
-        <em>같은 자리를 한 번 더</em> 누르면 발사됩니다.<br>
-        출구는 <em>EXIT(×1)</em>와 <em>EXIT ×2</em> 둘.<br>
-        <em>칸수 × 배수</em>가 큰 쪽을 골라야 고득점!<br>
-        레벨 8부터 <em>프리즘</em> — 빔이 좌우로 갈라집니다.<br>
-        콤보 5마다 <em>FEVER</em> — 1×5 레인 연사!
-      </p>
-      <div class="namebox">
-        <label class="fld" for="playerName">순위표에 쓸 이름</label>
-        <div class="row">
-          <input class="inp" id="playerName" maxlength="12" autocomplete="off"
-                 placeholder="이름 (최대 12자)" aria-describedby="nameHint">
-        </div>
-        <p class="hintrow" id="nameHint">이 기기에 저장돼 다음 판에도 같은 이름으로 등재됩니다.
-          비워 두면 서버가 임의로 지어 줍니다.</p>
-      </div>
+      <p class="pitch">거울을 읽고 <em>EXIT</em>로 빼내세요. <em>60초</em> 안에 몇 판까지.</p>
 
       <div class="modes">
         <button class="btn" id="btnStartFree" type="button">자유 플레이</button>
@@ -485,7 +487,24 @@
       <p class="hintrow" id="freeInfo"></p>
       <p class="hintrow" id="dailyInfo"></p>
       <p class="bestrow" id="startBest"></p>
+
+      <div class="homemenu">
+        <button class="btn ghost tiny" id="btnHomeBoard" type="button">순위표</button>
+        <button class="btn ghost tiny" id="btnHomeTut" type="button">튜토리얼</button>
+        <button class="btn ghost tiny" id="btnHomeHelp" type="button">도움말</button>
+      </div>
       <p class="hintrow">키보드: 방향키 이동 · Q/E 회전 · Space 발사</p>
+    </div>
+
+    <div class="screen hide" id="screenTut">
+      <h2>튜토리얼</h2>
+      <div class="tutbody" id="tutBody"></div>
+      <div class="modes">
+        <button class="btn ghost tiny" id="btnTutPrev" type="button">이전</button>
+        <button class="btn tiny" id="btnTutNext" type="button">다음</button>
+      </div>
+      <p class="hintrow" id="tutStep"></p>
+      <button class="btn ghost" id="btnTutClose" type="button">닫기</button>
     </div>
 
     <div class="screen hide" id="screenHelp">
@@ -648,6 +667,17 @@
 
       <p class="hintrow" id="bdSeed"></p>
 
+      <div class="namebox">
+        <label class="fld" for="playerName">순위표에 쓸 이름</label>
+        <div class="row">
+          <input class="inp" id="playerName" maxlength="12" autocomplete="off"
+                 placeholder="이름 (최대 12자)" aria-describedby="nameHint">
+          <button class="btn tiny" id="btnNameSave" type="button">저장</button>
+        </div>
+        <p class="hintrow" id="nameHint">이 기기에 저장돼 다음 판에도 같은 이름으로 등재됩니다.
+          비워 두면 서버가 임의로 지어 줍니다.</p>
+      </div>
+
       <ol class="cmplist" id="bdList" role="tabpanel" aria-live="polite"></ol>
       <p class="hintrow" id="bdState"></p>
 
@@ -672,7 +702,11 @@
         <ol class="cmplist" id="cmpList"></ol>
       </details>
 
-      <button class="btn" id="btnShareClose" type="button">닫기</button>
+      <div class="modes">
+        <button class="btn" id="btnBoardRetry" type="button">RETRY</button>
+        <button class="btn ghost" id="btnBoardHome" type="button">홈으로</button>
+        <button class="btn ghost" id="btnShareClose" type="button">닫기</button>
+      </div>
     </div>
   </div>
 
@@ -784,6 +818,8 @@ const S = {
   lastTickSec:-1,
   // ── 시드 / 리플레이 ──
   seed:'', rng:null, mode:'free', flipUsed:false,    // free(메인) | daily
+  timeLeft:MC.TIME_MAX,              // 런 전체가 함께 쓰는 시간 풀(ms)
+  dir:'N',                           // 현재 조준 방향 — 설치 전에도 회전할 수 있습니다
   log:[],                            // 검증용 이벤트 로그 (core.replay 가 그대로 읽습니다)
   rank:0,                            // 시간 보너스를 뺀 랭킹 점수
   runId:null, startedAt:0
@@ -1063,7 +1099,7 @@ function clearAim(){ setAim(null); }
 function placeFrom(g){
   const r=+g.dataset.r, c=+g.dataset.c, d=g.dataset.d;
   const changed = !S.emitter || S.emitter.r!==r || S.emitter.c!==c || S.emitter.d!==d;
-  S.emitter={r,c,d}; S.cur={r,c};
+  S.emitter={r,c,d}; S.cur={r,c}; S.dir=d;
   drawEmitter(); drawCursor(); updateControls();
   if(changed){ SFX.place(); say(`${r+1}행 ${c+1}열에 레이저 설치, ${DNAME[d]} 방향.`); }
 }
@@ -1087,10 +1123,8 @@ $('svg').addEventListener('pointerdown', e=>{
 });
 addEventListener('pointermove', e=>{
   if(!dragging) return;
-  const g = quadAt(e.clientX, e.clientY);
-  if(g){ if(g!==aimEl) tapFire=false; setAim(g); placeFrom(g); return; }
-  // 칸 밖(틈·거울칸·보드 바깥)으로 밀면 설치 지점에서의 방향으로 조준합니다.
-  // 6×6·7×7에서는 사분면이 좁아 정확히 누르기 어려우므로 '튕겨서 조준'을 허용합니다.
+  /* v1.6 — 드래그는 **방향만** 바꿉니다. 처음 누른 칸에서 타일이 움직이지 않습니다.
+     예전에는 밀면 다른 칸으로 설치가 옮겨 다녀 모바일에서 조준이 어려웠습니다. */
   if(!S.emitter) return;
   const b=$('svg').getBoundingClientRect(), k=b.width/VIEW;
   const dx=(e.clientX-b.left)/k - cx(S.emitter.c);
@@ -1115,23 +1149,20 @@ addEventListener('pointercancel', ()=>{ dragging=false; tapFire=false; clearAim(
 function rotate(step){
   if(S.phase==='fever'){ SFX.btn(); say('피버에서는 항상 오른쪽으로 발사합니다.'); return; }
   if(S.phase!=='ready') return;
-  if(!S.emitter){ needEmitter(); return; }
-  const i = DKEYS.indexOf(S.emitter.d);
-  S.emitter.d = DKEYS[(i+step+4)%4];
-  drawEmitter(); SFX.rotate();
-  say(`${DNAME[S.emitter.d]} 방향.`);
+  // 설치 전에도 방향을 미리 돌려둘 수 있습니다. 설치하면 그 방향으로 놓입니다.
+  const base = S.emitter ? S.emitter.d : S.dir;
+  const nd = DKEYS[(DKEYS.indexOf(base)+step+4)%4];
+  S.dir = nd;
+  if(S.emitter){ S.emitter.d = nd; drawEmitter(); }
+  else drawCursor();
+  SFX.rotate();
+  say(`${DNAME[nd]} 방향${S.emitter?'':' (설치하면 이 방향)'}.`);
 }
-/* FLIP — 판마다 1회. 모든 거울이 고정 규칙(/ ↔ \)으로 동시에 뒤집힙니다.
-   발사 전에만 쓸 수 있고, 쓴 뒤에도 발사 전이면 조준은 얼마든지 바꿀 수 있습니다. */
+/* FLIP — 모든 거울이 고정 규칙(/ ↔ \)으로 동시에 뒤집힙니다.
+   v1.6 부터 **횟수 제한이 없습니다.** 두 번 쓰면 원래대로 돌아오고, 드는 비용은
+   그동안 흘러간 시간뿐입니다. 발사 전에만 쓸 수 있습니다. */
 function doFlip(){
   if(S.phase!=='ready'){ SFX.btn(); return; }
-  if(S.flipUsed){
-    SFX.miss();
-    showFlash('!','FLIP은 판마다 한 번만 쓸 수 있습니다','var(--gold)');
-    say('FLIP은 판마다 한 번만 쓸 수 있습니다.');
-    return;
-  }
-  S.flipUsed = true;
   S.log.push({k:'x'});
   // 판 갱신은 코어에 맡깁니다 — 검증기가 같은 함수를 쓰므로 PERFECT 기준이 어긋나지 않습니다
   const lv = MC.applyFlip({grid:S.grid, exits:S.exits, maxScore:S.maxScore}, N);
@@ -1165,6 +1196,14 @@ function moveCursor(dr,dc){
   say(`${S.cur.r+1}행 ${S.cur.c+1}열 ${tileName(S.grid[S.cur.r][S.cur.c])}.`);
 }
 function placeAtCursor(){
+  if(S.phase==='ready' && !S.emitter){
+    const {r,c}=S.cur;
+    if(!S.grid[r][c]){
+      S.emitter={r,c,d:S.dir}; drawEmitter(); drawCursor(); updateControls();
+      SFX.place(); say(`${r+1}행 ${c+1}열에 레이저 설치, ${DNAME[S.dir]} 방향.`);
+      return;
+    }
+  }
   if(S.phase!=='ready') return;
   const {r,c}=S.cur;
   if(S.grid[r][c]){
@@ -1191,7 +1230,7 @@ function updateControls(){
   $('btnFire').setAttribute('aria-disabled', on?'false':'true');
   // 피버는 항상 오른쪽으로 발사하므로 회전이 필요 없습니다
   [$('btnRotL'),$('btnRotR')].forEach(b=>b.setAttribute('aria-disabled', fever?'true':'false'));
-  const flipOK = S.phase==='ready' && !S.flipUsed;
+  const flipOK = S.phase==='ready';        // v1.6 — 판마다 몇 번이든 쓸 수 있습니다
   $('btnFlip').setAttribute('aria-disabled', flipOK?'false':'true');
 }
 
@@ -1200,9 +1239,12 @@ function fire(r,c,d){
   S.phase='firing';
   stopTimer(); stopBeam(); clearAim(); dragging=false;
   // 검증용 로그 — 이 레벨 타이머 시작 후 경과 ms 를 기록합니다
-  const el = Math.max(0, Math.round(S.timeLimit*1000 - (S.tEnd-performance.now())));
-  S.log.push({k:'s', r, c, d, e:el});
-  const remain = Math.max(0,(S.tEnd-performance.now())/1000);
+  // e = 이 판을 보며 쓴 시간(ms). 남은 풀은 그만큼 줄어듭니다.
+  const left  = Math.max(0, S.tEnd - performance.now());
+  const spent = Math.max(0, Math.round(S.timeLeft - left));
+  S.timeLeft  = left;
+  S.log.push({k:'s', r, c, d, e:spent});
+  const remain = left/1000;
   // 판정은 코어가 합니다 — 서버가 같은 함수로 재현해야 하므로 여기서 규칙을 복제하지 않습니다
   const j = MC.judgeShot(S.grid, N, S.exits, r, c, d);
 
@@ -1253,6 +1295,7 @@ function fire(r,c,d){
   const oneDone = ()=>{ if(--pending===0) setTimeout(finish, fxOn?150:60); };
 
   if(fxOn) muzzle(cx(c),cy(r));
+  pathFx(drawn.map(x=>x.b), dur);   // 거울·소멸·프리즘 피격 이펙트
   for(const x of drawn){
     flyBeam({line:x.line, glow:x.glow, pts:x.pts, dur, ok:j.ok && j.hits.includes(x.b), tone:x.tone,
       isMirror:i => { const cell=x.b.path[i];
@@ -1344,6 +1387,62 @@ function fizzle(x,y){
   }
 }
 
+/* ---------- v1.6 이펙트 ----------
+   연출 끄기(F)를 켜면 전부 건너뜁니다. */
+function timeGainFx(ms){                       // PERFECT 시간 회복 — HUD 위로 뜨는 +N.Ns
+  if(!fxOn) return;
+  const host = $('uiLife').parentElement;
+  const t = document.createElement('span');
+  t.className = 'floatgain';
+  t.textContent = '+' + (ms/1000).toFixed(1) + 's';
+  host.appendChild(t);
+  setTimeout(()=>t.remove(), 900);
+}
+// 타일 종류별 피격 이펙트 — 거울/단방향은 링, 소멸은 붉은 파열, 프리즘은 갈라짐
+function tileFx(kind, r, c){
+  if(!fxOn) return;
+  const x = cx(c), y = cy(r);
+  if(kind==='vanish'){
+    for(let i=0;i<8;i++){
+      const a=Math.PI*2*i/8, R=30*K;
+      const p=mk('circle',{cx:x,cy:y,r:3.5*K,class:'fx-absorb'});
+      p.style.transition='transform .40s ease-out, opacity .40s ease-out';
+      gFx.appendChild(p);
+      requestAnimationFrame(()=>{
+        p.style.transform=`translate(${(Math.cos(a)*R).toFixed(1)}px,${(Math.sin(a)*R).toFixed(1)}px) scale(.3)`;
+        p.style.opacity='0'; });
+      setTimeout(()=>p.remove(),440);
+    }
+    return;
+  }
+  const cls = kind==='prism' ? 'fx-prism' : 'fx-mirror';
+  const ring = mk('circle',{cx:x,cy:y,r:8*K,class:cls});
+  ring.style.transition='transform .34s ease-out, opacity .34s ease-out';
+  gFx.appendChild(ring);
+  requestAnimationFrame(()=>{ ring.style.transform='scale(3.2)'; ring.style.opacity='0'; });
+  setTimeout(()=>ring.remove(),380);
+}
+// 한 발이 지나간 경로의 타일들에 순서대로 이펙트를 흘립니다
+function pathFx(beams, dur){
+  if(!fxOn) return;
+  const seen = new Set();
+  for(const b of beams){
+    const step = dur/Math.max(1,b.path.length-1);
+    b.path.forEach(([r,c],i)=>{
+      const t = S.grid[r][c];
+      let kind = null;
+      if(t===MC.T.VANISH) kind='vanish';
+      else if(t===MC.T.PRISM) kind='prism';
+      else if(MC.isMirror(t) || MC.isOneway(t)) kind='mirror';
+      if(!kind) return;
+      const key = r+','+c;
+      if(seen.has(key)) return;
+      seen.add(key);
+      setTimeout(()=>tileFx(kind,r,c), i*step);
+    });
+  }
+}
+
 function resolve(j,remain){
   if(j.ok){
     // 점수 계산은 코어가 담당합니다 (서버가 같은 식으로 재현해야 하므로)
@@ -1351,11 +1450,14 @@ function resolve(j,remain){
     const perfect = g.perfect, gain = g.total;
     const mult = 1 + S.combo*0.15;
     S.score += gain; S.rank += g.rank; S.combo++;
+    const back = perfect ? addTime(MC.PERFECT_REGAIN) : 0;   // 최대치를 넘기지 않습니다
     perfect ? SFX.perfect() : SFX.clear();
+    if(back>0) timeGainFx(back);
     const via = j.mult===2 ? 'EXIT ×2' : 'EXIT';
     const split = j.splitHits>1 ? ` · ${j.splitHits}갈래 관통` : '';
     showFlash(perfect?'PERFECT!':(j.splitHits>1?'MULTI!':'CLEAR'),
-      `${via}${split} · ${j.cells}칸 · x${mult.toFixed(2)} · +${gain}`,
+      `${via}${split} · ${j.cells}칸 · x${mult.toFixed(2)} · +${gain}`
+      + (back>0 ? ` · 시간 +${(back/1000).toFixed(1)}s` : ''),
       perfect?'var(--gold)':'var(--green)');
     say(`${perfect?'퍼펙트':'클리어'}. ${via}로 ${j.cells}칸 통과${split}, ${gain}점 획득. 총 ${S.score}점.`);
     updateHUD();
@@ -1365,40 +1467,42 @@ function resolve(j,remain){
       else { S.level++; SFX.levelup(); nextLevel(); }
     }, 820);
   }else{
-    S.life--; S.combo=0; S.emitter=null;
+    S.combo=0; S.emitter=null;
     SFX.miss();
     // 3.3.1 오류 식별 — 왜 실패했는지 문구로 명확히
     const why = j.reason==='absorbed' ? '장애물에 흡수되었습니다'
               : j.reason==='loop'     ? '거울 사이를 무한히 맴돌았습니다'
                                       : 'EXIT가 아닌 곳으로 나갔습니다';
     showFlash('MISS', why, 'var(--pink)');
-    say(`실패. ${why}. 남은 라이프 ${Math.max(0,S.life)}개.`);
+    say(`실패. ${why}. 남은 시간 ${(poolLeft()/1000).toFixed(1)}초.`);
     const board = $('board');
     board.classList.add('shake');
     setTimeout(()=>board.classList.remove('shake'),360);
     updateHUD();
-    setTimeout(()=>{ S.life<=0 ? gameOver() : nextLevel(); }, 900);
+    setTimeout(()=>{ poolLeft()<=0 ? gameOver() : nextLevel(); }, 900);
   }
 }
 
-function timeout(){
-  if(S.phase!=='ready') return;
-  S.log.push({k:'t'});
+/* 전체 시간이 0 — 그 자리에서 런이 끝납니다(라이프 없음).
+   로그에는 아무 이벤트도 남기지 않습니다. 검증기는 남은 시간으로 종료를 판정합니다. */
+function timeUp(){
+  if(S.phase!=='ready' && S.phase!=='fever') return;
   S.phase='firing';
-  stopTimer(); clearAim(); dragging=false;
+  clearAim(); dragging=false;
   gQuads.innerHTML=''; gCur.innerHTML='';
-  S.life--; S.combo=0; S.emitter=null;
+  S.emitter=null; drawEmitter();
   SFX.timeup();
-  showFlash('TIME UP','제한시간을 넘겼습니다','var(--pink)');
-  say(`시간 초과. 남은 라이프 ${Math.max(0,S.life)}개.`);
+  showFlash('TIME UP','시간을 다 썼습니다','var(--pink)');
+  say('시간을 다 썼습니다. 게임 오버.');
   updateHUD();
-  setTimeout(()=>{ S.life<=0 ? gameOver() : nextLevel(); }, 900);
+  setTimeout(gameOver, 900);
 }
 
 /* ============================ 피버 타임 ============================ */
 function startFever(){
   stopBeam();
   $('svg').style.setProperty('--k','1');   // 피버 레인은 방 크기와 무관하게 항상 같은 굵기
+  pauseClock();                     // 피버 동안 전체 시간은 줄지 않습니다
   S.phase='fever'; S.feverHits=0; S.feverEnd=performance.now()+FEVER_MS;
   S.emitter=null;
   $('board').classList.add('fevermode','feverflash');
@@ -1590,12 +1694,10 @@ function endFever(){
   $('timebar').classList.remove('fever');
   SFX.feverEnd();
   // 라이프 회복 — 피버는 콤보 5연속을 쌓아야 열리므로, 그 자체가 회복 조건입니다
-  const healed = S.feverHits>0 && S.life<MAX_LIFE;
-  if(healed){ S.life++; SFX.perfect(); updateHUD(); }
-  showFlash(healed?'LIFE +1':'FEVER END',
-    `${S.feverHits}히트 · 콤보 x${(1+S.combo*0.15).toFixed(2)}`,
-    healed?'var(--green)':'var(--gold)');
-  say(`피버 종료. ${S.feverHits}회 적중.${healed?` 라이프 회복, 현재 ${S.life}개.`:''} 총 ${S.score}점.`);
+  showFlash('FEVER END',
+    `${S.feverHits}히트 · 콤보 x${(1+S.combo*0.15).toFixed(2)} · 시간 그대로`,
+    'var(--gold)');
+  say(`피버 종료. ${S.feverHits}회 적중. 남은 시간 ${(poolLeft()/1000).toFixed(1)}초. 총 ${S.score}점.`);
   setTimeout(()=>{ S.level++; SFX.levelup(); nextLevel(); }, 900);
 }
 
@@ -1626,35 +1728,46 @@ function nextLevel(){
   const grew = N !== prevN;
   const lv = genLevel(S.level);
   S.grid=lv.grid; S.exits=lv.exits; S.maxScore=lv.maxScore;
-  S.emitter=null; S.lastTickSec=-1; S.flipUsed=false;
+  S.emitter=null; S.lastTickSec=-1;   // FLIP 은 v1.6 부터 횟수 제한이 없습니다
   S.cur={r:Math.min(S.cur.r,N-1), c:Math.min(S.cur.c,N-1)};
   $('hintText').innerHTML = '탭 <b>설치</b> · 한 번 더 <b>발사</b>';
   drawBoard();
   updateHUD(); updateControls();
   S.phase='ready';
-  // 방이 커지면 기본 시간과 하한도 함께 올라갑니다
-  S.timeLimit = Math.max(6 + (N-5)*1.5, (13 + (N-5)*3) - S.level*0.4);
-  S.tEnd = performance.now() + S.timeLimit*1000;
+  resumeClock();                    // 시간 풀은 판이 바뀌어도 이어집니다
   if(grew){
     SFX.feverGo();
     showFlash(`${N}×${N}`, '방이 넓어졌습니다', 'var(--cyan)');
   }
   say(`레벨 ${S.level}. ${N}×${N} 방, 출구 2개, 최고 ${S.maxScore}점. `
-    + `제한시간 ${S.timeLimit.toFixed(0)}초.`);
-  tick();
+    + `남은 시간 ${(poolLeft()/1000).toFixed(1)}초.`);
+}
+
+/* 시간 풀은 '플레이어가 판을 보고 있는 동안' 에만 흐릅니다.
+   S.tEnd 는 시계가 도는 동안의 마감 시각, S.timeLeft 는 멈�췄을 때의 잔량입니다. */
+function poolLeft(){ return S.raf ? Math.max(0, S.tEnd - performance.now()) : S.timeLeft; }
+function pauseClock(){ S.timeLeft = poolLeft(); stopTimer(); }
+function resumeClock(){ S.tEnd = performance.now() + S.timeLeft; stopTimer(); tick(); }
+function addTime(ms){                       // 회복 — 최대치를 넘기지 않습니다
+  const before = poolLeft();
+  const after  = Math.min(MC.TIME_MAX, before + ms);
+  S.timeLeft = after;
+  if(S.raf) S.tEnd = performance.now() + after;
+  return after - before;
 }
 
 function tick(){
   const left = S.tEnd - performance.now();
-  const f = Math.max(0, left/(S.timeLimit*1000));
+  const f = Math.max(0, left/MC.TIME_MAX);
   $('timefill').style.transform = `scaleX(${f})`;
   const warn = f<0.34;
   $('timebar').classList.toggle('warn', warn);
   $('timebar').setAttribute('aria-valuenow', Math.round(f*100));
   $('timelabel').textContent = warn ? '남은 시간 ' + Math.max(0,left/1000).toFixed(1) + 's' : '';
+  $('uiLife').textContent = (Math.max(0,left)/1000).toFixed(1);
   const sec = Math.ceil(left/1000);
-  if(sec<=3 && sec>0 && sec!==S.lastTickSec){ S.lastTickSec=sec; SFX.tick(); }
-  if(left<=0){ timeout(); return; }
+  if(sec<=5 && sec>0 && sec!==S.lastTickSec){ S.lastTickSec=sec; SFX.tick(); }
+  if(left<=0){ S.timeLeft=0; stopTimer(); timeUp(); return; }
   S.raf = requestAnimationFrame(tick);
 }
 function stopTimer(){ cancelAnimationFrame(S.raf); S.raf=0; }
@@ -1663,8 +1776,9 @@ function updateHUD(){
   $('uiLevel').textContent = S.level;
   $('uiScore').textContent = S.score.toLocaleString();
   $('uiCombo').textContent = 'x'+(1+S.combo*0.15).toFixed(2);
-  $('uiLife').textContent  = '●'.repeat(Math.max(0,S.life)) + '○'.repeat(Math.max(0,MAX_LIFE-S.life));
-  $('uiLife').setAttribute('aria-label', `라이프 ${Math.max(0,S.life)} / ${MAX_LIFE}`);
+  const secs = poolLeft()/1000;
+  $('uiLife').textContent  = secs.toFixed(1);
+  $('uiLife').setAttribute('aria-label', `남은 시간 ${secs.toFixed(1)}초 (최대 ${MC.TIME_MAX/1000}초)`);
   $('uiBest').textContent  = S.maxScore || '-';
   $('uiSize').textContent  = S.phase==='fever' ? '1×5' : `${N}×${N}`;
 }
@@ -1695,7 +1809,8 @@ function gameOver(){
   say(`게임 오버. 최종 ${S.score}점, 레벨 ${S.level} 도달.${record?' 신기록입니다.':''}`);
   refreshStartBest();
   buildResult();
-  apiSubmit();                    // 전체 순위에 자동 등재 (결과 화면에 순위를 바로 보여줍니다)
+  // 등재 후 곧바로 순위·이름 화면을 띄웁니다 (여기에 RETRY 가 함께 있습니다)
+  apiSubmit().then(()=>{ if(S.phase==='over') openBoard(); });
   $('btnRetry').focus();
 }
 
@@ -1862,7 +1977,7 @@ let bdTab = 'free', bdDays = 0;        // days 0 = 전체 기간
 async function openBoard(){
   if(S.phase==='ready') togglePause();
   $('screenBoard').classList.remove('hide');
-  $('btnShareClose').focus();
+  ($('playerName').value ? $('btnBoardRetry') : $('playerName')).focus();
   SFX.btn();
   bdTab = S.mode==='daily' ? 'daily' : 'free';   // 방금 플레이한 모드를 먼저 보여줍니다
   loadBoard();
@@ -1978,7 +2093,8 @@ async function startGame(mode){
                         : MC.freeSeed(Date.now(), Math.random));   // 오프라인 — 등재 없음
   S.rng  = MC.makeRng(S.seed);
   S.log  = []; S.rank = 0; S.startedAt = Date.now();
-  S.level=1; S.score=0; S.life=3; S.combo=0; S.cur={r:2,c:2};
+  S.level=1; S.score=0; S.combo=0; S.cur={r:2,c:2};
+  S.timeLeft = MC.TIME_MAX; S.dir='N';
   $('screenStart').classList.add('hide');
   $('screenOver').classList.add('hide');
   $('screenPause').classList.add('hide');
@@ -2017,6 +2133,57 @@ function toggleSound(){
   say(muted?'소리를 껐습니다.':'소리를 켰습니다.');
 }
 
+/* ============================ 튜토리얼 ============================
+   지금은 '읽는 튜토리얼' 입니다. 단계 배열만 늘리면 되도록 해 두었고,
+   나중에 각 단계에 고정 시드의 연습판을 붙일 수 있게 board 필드를 비워 두었습니다. */
+const TUT = [
+  { t:'설치하고 발사',
+    h:'빈 타일을 <b>한 번</b> 누르면 그 자리에 레이저가 놓입니다.<br>'
+     +'<b>같은 자리를 한 번 더</b> 누르면 발사됩니다.<br>'
+     +'누른 채 밀면 타일은 그대로 두고 <b>방향만</b> 바뀝니다.',
+    fig:'▶ ▲ ◀ ▼' },
+  { t:'거울을 읽기',
+    h:'거울 <b>╱ ╲</b> 은 빔을 90° 꺾습니다.<br>'
+     +'출발점에서 눈으로 따라가 보세요. 경로가 길수록 점수가 높습니다.',
+    fig:'╱ ╲ ╱' },
+  { t:'출구는 두 개',
+    h:'<b>EXIT</b> 는 ×1, <b>EXIT ×2</b> 는 배점 2배입니다.<br>'
+     +'×2 쪽은 경로가 더 짧으니 <b>칸수 × 배수</b> 를 비교해 고르세요.<br>'
+     +'그 판에서 가능한 최고 점수를 뽑으면 <b>PERFECT</b> 이고 시간이 조금 회복됩니다.',
+    fig:'EXIT  ·  EXIT ×2' },
+  { t:'60초 안에',
+    h:'시간은 <b>런 전체가 함께</b> 씁니다. 판이 바뀌어도 초기화되지 않습니다.<br>'
+     +'<b>0이 되면 그 자리에서 끝</b>입니다. 틀린 발사의 대가는 거기에 쓴 시간입니다.<br>'
+     +'피버 구간에서는 시간이 줄지 않습니다.',
+    fig:'60.0 → 0.0' },
+  { t:'특수 타일',
+    h:'<b>소멸 타일</b> — 빔이 흡수되어 실패합니다.<br>'
+     +'<b>프리즘</b>(레벨 8+) — 좌우 두 갈래로 갈라집니다. 한 갈래만 EXIT로 나가도 클리어.<br>'
+     +'<b>단방향 거울</b>(레벨 10+) — 위·왼쪽에서는 통과, 아래·오른쪽에서는 반사.<br>'
+     +'<b>FLIP</b>(G) — 모든 거울을 뒤집습니다. 몇 번이든 쓸 수 있습니다.',
+    fig:'X  ◈  ╱' }
+];
+let tutAt = 0;
+function renderTut(){
+  const s = TUT[tutAt];
+  $('tutBody').innerHTML = '<p><b>'+escapeHtml(s.t)+'</b></p><p>'+s.h+'</p>'
+    + (s.fig ? '<span class="fig">'+escapeHtml(s.fig)+'</span>' : '');
+  $('tutStep').textContent = (tutAt+1)+' / '+TUT.length;
+  $('btnTutPrev').setAttribute('aria-disabled', tutAt===0 ? 'true':'false');
+  $('btnTutNext').textContent = tutAt===TUT.length-1 ? '처음으로' : '다음';
+}
+function tutGo(step){
+  tutAt = (tutAt + step + TUT.length) % TUT.length;
+  SFX.btn(); renderTut();
+}
+function openTut(){
+  if(S.phase==='ready') togglePause();
+  tutAt = 0; renderTut();
+  $('screenTut').classList.remove('hide');
+  $('btnTutNext').focus(); SFX.btn();
+}
+
+
 /* ============================ 이벤트 ============================ */
 $('btnStartDaily').onclick= ()=>{ SFX.btn(); startGame('daily'); };
 $('btnStartFree').onclick = ()=>{ SFX.btn(); startGame('free'); };
@@ -2028,6 +2195,18 @@ $('playerName').addEventListener('change', e=>{ e.target.value = saveName(e.targ
 $('playerName').addEventListener('keydown', e=>{
   if(e.key==='Enter'){ e.preventDefault(); e.target.blur(); startGame('free'); }
 });
+$('btnNameSave').onclick  = ()=>{ const el=$('playerName'); el.value=saveName(el.value);
+  SFX.btn(); say('이름을 저장했습니다.'); if(S.myEntry) loadBoard(); };
+$('btnHomeBoard').onclick = ()=> openBoard();
+$('btnHomeHelp').onclick  = ()=> openHelp();
+$('btnHomeTut').onclick   = ()=> openTut();
+$('btnTutClose').onclick  = ()=>{ $('screenTut').classList.add('hide'); SFX.btn(); $('btnHomeTut').focus(); };
+$('btnTutPrev').onclick   = ()=> tutGo(-1);
+$('btnTutNext').onclick   = ()=> tutGo(1);
+$('btnBoardRetry').onclick= ()=>{ $('screenBoard').classList.add('hide'); SFX.btn(); startGame(); };
+$('btnBoardHome').onclick = ()=>{ $('screenBoard').classList.add('hide');
+  $('screenOver').classList.add('hide'); $('screenStart').classList.remove('hide');
+  SFX.btn(); refreshStartBest(); $('btnStartFree').focus(); };
 $('tabFree').onclick      = ()=>{ if(bdTab!=='free'){ bdTab='free'; SFX.btn(); loadBoard(); } };
 $('tabDaily').onclick     = ()=>{ if(bdTab!=='daily'){ bdTab='daily'; SFX.btn(); loadBoard(); } };
 $('rangeAll').onclick     = ()=>{ if(bdDays!==0){ bdDays=0; SFX.btn(); loadBoard(); } };

@@ -110,8 +110,8 @@ async function ipHash(env, req){
 function minElapsedMs(events){
   let ms = 0;
   for(const e of events){
+    // v1.6 부터 s 의 e 는 '그 판을 보며 쓴 시간' 입니다. t(판별 시간초과) 이벤트는 없어졌습니다.
     if(e.k==='s') ms += Math.max(0, e.e|0);
-    else if(e.k==='t') ms += 6000;              // 시간초과는 최소 제한시간(하한 6초)만큼 걸림
     else if(e.k==='e') ms += 0;                 // 피버 경과는 f 이벤트의 e 로 이미 반영
   }
   // 피버 구간: 각 피버의 마지막 f 시각까지는 최소한 흘렀어야 함
