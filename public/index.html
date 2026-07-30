@@ -286,6 +286,9 @@
   .screen.hide{display:none}
   #bdResult.hide{display:none}
   #screenBoard:not(.resultmode) #btnBoardRetry{display:none}
+  /* 결과 화면에서는 플레이한 모드로 고정합니다 —
+     자유 플레이로 한 런을 오늘의 판 탭에서 보는 건 의미가 없습니다 */
+  #screenBoard.resultmode .tabs{display:none}
   #bdResult{display:flex;flex-direction:column;align-items:center;gap:.2rem}
   .screen h1{margin:0;font-size:1.75rem;letter-spacing:.14em;color:var(--cyan);
     text-shadow:0 0 22px rgba(61,240,255,.5)}
