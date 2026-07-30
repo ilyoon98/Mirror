@@ -286,6 +286,8 @@
   .screen.hide{display:none}
   #bdResult.hide{display:none}
   #screenBoard:not(.resultmode) #btnBoardRetry{display:none}
+  /* 이름 입력은 등재하는 자리에서만 — 홈에서 순위표를 구경할 때는 감춥니다 */
+  #screenBoard:not(.resultmode) .namebox{display:none}
   /* 결과 화면에서는 플레이한 모드로 고정합니다 —
      자유 플레이로 한 런을 오늘의 판 탭에서 보는 건 의미가 없습니다 */
   #screenBoard.resultmode .tabs{display:none}
@@ -2056,7 +2058,12 @@ async function openBoard(){
     $('screenBoard').classList.remove('resultmode');
   }
   $('screenBoard').classList.remove('hide');
-  ($('playerName').value ? $('btnBoardRetry') : $('playerName')).focus();
+  /* 결과 화면에서는 이름칸(비었으면) → RETRY 로, 그냥 구경할 때는 닫기로 포커스를 보냅니다.
+     숨겨진 이름칸에 포커스를 주면 아무 데도 안 가므로 모드로 갈라야 합니다. */
+  if($('screenBoard').classList.contains('resultmode'))
+    ($('playerName').value ? $('btnBoardRetry') : $('playerName')).focus();
+  else
+    $('btnShareClose').focus();
   SFX.btn();
   bdTab = S.mode==='daily' ? 'daily' : 'free';   // 방금 플레이한 모드를 먼저 보여줍니다
   loadBoard();
