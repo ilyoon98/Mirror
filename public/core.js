@@ -338,6 +338,18 @@ function placeHazards(rng, grid, n, level, exits, keepIn){
     return null;
   };
 
+  /* ── 프리즘을 먼저 놓습니다 ──
+     순서가 중요합니다. 단방향을 먼저 놓으면, 뒤에 놓인 프리즘이 단방향이 쓰던
+     정답 경로를 끊어(프리즘은 들어온 갈래를 소비합니다) 단방향이 장식이 됩니다.
+     실측: 단방향 → 프리즘 순서에서 관여율이 97.9% → 77.6% 로 떨어졌습니다.
+     프리즘을 먼저 놓고 단방향을 그 위에서 검증하면 이 문제가 생기지 않습니다. */
+  const prisms = [];
+  for(let i=0; i<plan.prism && put<plan.cap; i++){
+    const cell = placeVerified(()=>T.PRISM, ()=> hasSplitExitShot(grid, n, exits));
+    if(!cell) break;
+    prisms.push(cell);
+  }
+
   // ── 단방향 거울 — 정답 경로에 실제로 관여하는 자리를 우선합니다 ──
   const oneways = [];
   for(let i=0; i<plan.oneway && put<plan.cap; i++){
@@ -346,14 +358,6 @@ function placeHazards(rng, grid, n, level, exits, keepIn){
       (r,c)=> onSolutionPath(grid, n, exits, r, c));
     if(!cell) break;
     oneways.push(cell);
-  }
-
-  // ── 프리즘 — 갈래가 출구까지 닿는 자리를 우선합니다 ──
-  const prisms = [];
-  for(let i=0; i<plan.prism && put<plan.cap; i++){
-    const cell = placeVerified(()=>T.PRISM, ()=> hasSplitExitShot(grid, n, exits));
-    if(!cell) break;
-    prisms.push(cell);
   }
 
   /* ── 소멸 타일 ──
@@ -398,15 +402,20 @@ function hasSplitExitShot(grid, n, exits){
 }
 
 /* (r,c) 가 '갈라지지 않는 정답 경로' 위에 실제로 놓여 있는가.
-   단방향 거울이 장식이 아니라 답에 관여하는지 보는 기준입니다. */
+   단방향 거울이 장식이 아니라 답에 관여하는지 보는 기준입니다.
+
+   프리즘을 지나 갈라진 경로는 세지 않습니다(splits===0 만 인정).
+   solveInfo 의 ok 도 갈라지지 않는 경로로 판정하므로 기준을 맞춥니다. */
 function onSolutionPath(grid, n, exits, r0, c0){
   for(let r=0;r<n;r++) for(let c=0;c<n;c++){
     if(grid[r][c]) continue;
     for(const d of DKEYS){
-      const s = simulate(grid,n,r,c,d);
-      if(s.absorbed || !s.exit) continue;
-      if(!exits.some(e=>e.key===s.exit)) continue;
-      if(s.path.some(([pr,pc]) => pr===r0 && pc===c0)) return true;
+      const t = trace(grid,n,r,c,d);
+      if(t.splits !== 0) continue;
+      const b = t.beams[0];
+      if(!b || b.absorbed || !b.exit) continue;
+      if(!exits.some(e=>e.key===b.exit)) continue;
+      if(b.path.some(([pr,pc]) => pr===r0 && pc===c0)) return true;
     }
   }
   return false;
@@ -442,7 +451,16 @@ function solveInfo(grid, n, exits){
    프리즘의 값은 "갈래를 살려서 내보냈다"에 있고, 세 갈래가 모두 정답 출구로 모이는 것은
    기하학적으로 거의 불가능하기 때문입니다. 흡수·무한반사로 죽은 갈래는 세지 않습니다.
    갈래가 하나뿐인 일반 발사는 나간 갈래도 1개라 배율 1 — 예전과 값이 같습니다. */
-const SPLIT_BONUS = [1, 1, 1.5, 2, 2];      // 보드를 벗어난 갈래 수 → 배율
+/* 보드를 벗어난 갈래 수 → 배율.
+
+   실측 기준으로 정했습니다. 프리즘 발사는 배율을 붙이기 **전에** 이미 일반 발사의
+   1.8~4.2배입니다(꺾인 갈래가 길게 돌기 때문). 그래서 배율을 세게 주면 프리즘이
+   사실상 필수 선택이 됩니다.
+
+   out=2 가 성공의 64% 를 차지해 실질 조절 지점은 인덱스 2 하나입니다.
+   이 값이면 계산해서 맞춘 프리즘 발사는 일반 발사의 2.6배, 감으로 지르면
+   기대값 1.2배입니다(성공률 45%, 실패 시 라이프 손실). */
+const SPLIT_BONUS = [1, 1, 1.25, 1.6, 2.0];
 function shotScore(hits, exits, beams){
   let best = 0;
   for(const b of hits){
