@@ -247,19 +247,13 @@ function genLevel(rng, n, level){
 /* 특수 타일 배치.
    레벨에 따라 소멸 → 프리즘 → 단방향 순으로 점진적으로 등장시킵니다.
    두 출구의 '최적 경로'가 지나는 칸은 건드리지 않아, 적어도 그 두 답은 살아남습니다. */
-/* 프리즘은 아직 켜지 않습니다.
-   출구는 "정답이 6개 이하인 희귀한 면"으로 고르는데, 프리즘 갈래는 임의 방향으로 흩어져
-   그 면에 닿을 확률이 사실상 0입니다. 실측: 전수 탐색으로 자리를 골라도
-   '갈래가 출구에 도달하는 판' 0% (레벨 8·20·35 각 40판).
-   즉 지금 규칙 그대로면 프리즘은 위험만 있고 보상이 없는 함정이 됩니다.
-   보상 규칙을 정한 뒤 이 값을 되살리세요. */
-const PRISM_ENABLED = false;
+/* 프리즘·단방향 거울 — 배치 구조는 고쳤고(배치 후 회피 → 배치 후 재검증),
+   판정 규칙도 확정했지만 **보너스 배율 수치가 아직 안 정해져서** 켜지 않습니다.
 
-/* 단방향 거울도 아직 켜지 않습니다.
-   특수 타일은 두 출구의 최적 경로를 피해서 놓기 때문에(그래야 판이 반드시 풀립니다),
-   단방향 거울이 정답 경로에 놓이는 일이 없어 그냥 장식이 됩니다.
-   실측: 정답 경로에 단방향 거울이 관여하는 판 0% (레벨 10~50 각 60판).
-   의미를 가지려면 '경로 위에 놓고 다시 풀리는지 확인'하는 별도 배치가 필요합니다. */
+   막고 있던 구조적 원인은 해결됐습니다. placeHazards 주석을 보세요.
+   켤 때는 규칙이 바뀌는 것이므로 PROTOCOL 을 올려야 합니다(mr2 → mr3).
+   SPLIT_BONUS 수치를 확정한 뒤 두 값을 true 로 바꾸면 됩니다. */
+const PRISM_ENABLED = false;
 const ONEWAY_ENABLED = false;
 
 function hazardPlan(n, level){
@@ -294,87 +288,119 @@ function protectedCells(grid, n, exits){
   return keep;
 }
 
+/* 특수 타일 배치 — 타일 종류에 따라 두 가지 전략을 씁니다.
+
+   소멸 타일: **배치 후 회피** (예전 그대로)
+     보호구역(두 출구의 최적 경로) 밖에만 놓습니다. 소멸 타일은 위협이라
+     경로 밖에 있어도 제 역할을 합니다.
+
+   프리즘·단방향 거울: **배치 후 재검증** (v1.4 에서 바꿨습니다)
+     보호구역 안, 즉 정답 경로 위까지 후보에 넣고, 놓은 뒤 판이 여전히 풀리는지
+     다시 시뮬레이션해서 통과할 때만 확정합니다.
+
+     왜 바꿨는가: 레이저 경로는 결정론적·가역적이라 출구에서 역추적한 경로가
+     '갈래가 출구에 닿을 수 있는 칸' 전체와 정확히 일치합니다. 그 경로를 피해서만
+     놓으면 프리즘 갈래가 출구에 닿는 일은 **원리적으로 불가능**합니다.
+     실측으로도 그런 자리 1,429곳이 전부 보호구역 안이었고 배치 가능한 칸은 0곳,
+     프리즘 발사 12,187건이 100% 실패였습니다. 단방향 거울이 정답에 관여하는 판도
+     같은 이유로 0% 였습니다. 회피로는 고칠 수 없는 구조적 원인입니다. */
 function placeHazards(rng, grid, n, level, exits, keepIn){
   const plan = hazardPlan(n, level);
-  // 두 출구의 최적 경로는 보호합니다 (재시도 시 매번 다시 구하지 않도록 받아둡니다)
-  const keep = keepIn || protectedCells(grid, n, exits);
-  const free=[];
-  for(let r=0;r<n;r++) for(let c=0;c<n;c++)
-    if(!grid[r][c] && !keep.has(r+','+c)) free.push([r,c]);
-  for(let i=free.length-1;i>0;i--){ const j=rndOf(rng,i+1); [free[i],free[j]]=[free[j],free[i]]; }
-
-  let put = 0;
-  const takeNear = (pts)=>{                    // 주어진 좌표들에 가까운 빈 칸을 우선 집어옵니다
-    if(!pts.length) return free.pop();
-    let bi = free.length-1, bd = Infinity;
-    for(let i=free.length-1;i>=0;i--){
-      const [r,c] = free[i];
-      let m = Infinity;
-      for(const [pr,pc] of pts) m = Math.min(m, Math.abs(r-pr)+Math.abs(c-pc));
-      if(m < bd){ bd = m; bi = i; }
-    }
-    return free.splice(bi,1)[0];
-  };
-  const place = (kind, howMany, near)=>{
+  const shuffle = a =>{ for(let i=a.length-1;i>0;i--){ const j=rndOf(rng,i+1); [a[i],a[j]]=[a[j],a[i]]; } return a; };
+  const emptyCells = ()=>{
     const out=[];
-    for(let i=0;i<howMany && put<plan.cap && free.length; i++){
-      const cell = near ? takeNear(near) : free.pop();
-      if(!cell) break;
-      const [r,c] = cell;
-      grid[r][c] = kind==='oneway' ? (rng()<0.5 ? T.ONEWAY_A : T.ONEWAY_B) : kind;
-      out.push([r,c]); put++;
-    }
+    for(let r=0;r<n;r++) for(let c=0;c<n;c++) if(!grid[r][c]) out.push([r,c]);
     return out;
   };
-  place('oneway', plan.oneway);
 
-  /* 프리즘을 소멸 타일보다 먼저 놓습니다.
-     3갈래 중 하나만 흡수돼도 판 전체가 실패인 규칙이라, 순서를 반대로 하면
-     소멸 타일이 모든 갈래를 죽여서 "위험만 있고 보상이 없는" 함정이 됩니다. */
-  const prisms = [];
-  for(let i=0; i<plan.prism && put<plan.cap && free.length; i++){
-    let idx = free.length-1;
-    for(let k=0; k<free.length; k++){                    // 갈래가 출구까지 닿는 자리를 고릅니다
-      const cand = free.length-1-k;
-      const [r,c] = free[cand];
-      grid[r][c] = T.PRISM;
-      const good = hasSafeSplitShot(grid, n, exits);
-      grid[r][c] = null;
-      if(good){ idx = cand; break; }
+  let put = 0;
+  const solvable = ()=> solveInfo(grid, n, exits).ok;   // 안전한(갈라지지 않는) 정답 경로가 남아 있는가
+
+  /* 후보를 훑어 '판이 계속 풀리는' 첫 자리에 놓습니다.
+     want 를 주면 그 조건까지 만족하는 자리를 먼저 찾고, 없으면 풀림만 보고 놓습니다.
+     둘 다 실패하면 그 타일은 놓지 않습니다 — 의미 없는 자리에 억지로 놓지 않습니다. */
+  const placeVerified = (makeTile, want)=>{
+    const cands = shuffle(emptyCells());
+    for(let pass=0; pass<(want?2:1); pass++){
+      for(const [r,c] of cands){
+        if(grid[r][c]) continue;
+        grid[r][c] = makeTile();
+        if(solvable() && (pass===1 || !want || want(r,c))){ put++; return [r,c]; }
+        grid[r][c] = null;
+      }
     }
-    const [r,c] = free.splice(idx,1)[0];
-    grid[r][c] = T.PRISM; prisms.push([r,c]); put++;
+    return null;
+  };
+
+  // ── 단방향 거울 — 정답 경로에 실제로 관여하는 자리를 우선합니다 ──
+  const oneways = [];
+  for(let i=0; i<plan.oneway && put<plan.cap; i++){
+    const cell = placeVerified(
+      ()=> rng()<0.5 ? T.ONEWAY_A : T.ONEWAY_B,
+      (r,c)=> onSolutionPath(grid, n, exits, r, c));
+    if(!cell) break;
+    oneways.push(cell);
   }
 
-  /* 소멸 타일은 한 칸씩 놓되, 프리즘이 있으면
-     '살아남는 분산 발사'가 하나도 없어지는 자리는 피합니다.
-     위험은 그대로 두면서(대부분의 갈래는 여전히 죽습니다) 보상의 길만 남깁니다. */
-  for(let i=0; i<plan.vanish && put<plan.cap && free.length; i++){
-    let idx = free.length-1;
+  // ── 프리즘 — 갈래가 출구까지 닿는 자리를 우선합니다 ──
+  const prisms = [];
+  for(let i=0; i<plan.prism && put<plan.cap; i++){
+    const cell = placeVerified(()=>T.PRISM, ()=> hasSplitExitShot(grid, n, exits));
+    if(!cell) break;
+    prisms.push(cell);
+  }
+
+  /* ── 소멸 타일 ──
+     보호구역을 여기서 다시 구합니다. 프리즘·단방향이 예전 최적 경로 위에 놓였을 수 있어
+     받아온 keep 이 더는 살아 있는 경로가 아닐 수 있기 때문입니다.
+     (그대로 쓰면 소멸 타일이 남은 유일한 정답 경로를 막아버릴 수 있습니다) */
+  const keep = (prisms.length || oneways.length)
+    ? protectedCells(grid, n, exits)
+    : (keepIn || protectedCells(grid, n, exits));
+  const outside = shuffle(emptyCells().filter(([r,c]) => !keep.has(r+','+c)));
+
+  for(let i=0; i<plan.vanish && put<plan.cap && outside.length; i++){
+    let idx = outside.length-1;
     if(prisms.length){
-      for(let k=0; k<Math.min(6, free.length); k++){
-        const cand = free.length-1-k;
-        const [r,c] = free[cand];
+      // 프리즘이 있으면 '갈래가 출구에 닿는 길'을 전부 지우는 자리는 피합니다
+      for(let k=0; k<Math.min(6, outside.length); k++){
+        const cand = outside.length-1-k;
+        const [r,c] = outside[cand];
         grid[r][c] = T.VANISH;
-        const alive = hasSafeSplitShot(grid, n, exits);
+        const alive = hasSplitExitShot(grid, n, exits);
         grid[r][c] = null;
         if(alive){ idx = cand; break; }
       }
     }
-    const [r,c] = free.splice(idx,1)[0];
+    const [r,c] = outside.splice(idx,1)[0];
     grid[r][c] = T.VANISH; put++;
   }
 }
 
-/* 프리즘을 지나면서 모든 갈래가 흡수되지 않고, 하나 이상이 출구에 닿는 발사가 있는가 */
-function hasSafeSplitShot(grid, n, exits){
+/* 프리즘을 지나 갈라진 갈래 중 하나 이상이 실제 출구에 닿는 발사가 있는가.
+   죽은 갈래는 그 갈래만 무효이므로 흡수 여부는 보지 않습니다. */
+function hasSplitExitShot(grid, n, exits){
   for(let r=0;r<n;r++) for(let c=0;c<n;c++){
     if(grid[r][c]) continue;
     for(const d of DKEYS){
       const t = trace(grid,n,r,c,d);
       if(t.splits===0) continue;
-      if(t.beams.some(b=>b.absorbed)) continue;
       if(t.beams.some(b => exits.some(e=>e.key===b.exit))) return true;
+    }
+  }
+  return false;
+}
+
+/* (r,c) 가 '갈라지지 않는 정답 경로' 위에 실제로 놓여 있는가.
+   단방향 거울이 장식이 아니라 답에 관여하는지 보는 기준입니다. */
+function onSolutionPath(grid, n, exits, r0, c0){
+  for(let r=0;r<n;r++) for(let c=0;c<n;c++){
+    if(grid[r][c]) continue;
+    for(const d of DKEYS){
+      const s = simulate(grid,n,r,c,d);
+      if(s.absorbed || !s.exit) continue;
+      if(!exits.some(e=>e.key===s.exit)) continue;
+      if(s.path.some(([pr,pc]) => pr===r0 && pc===c0)) return true;
     }
   }
   return false;
@@ -390,10 +416,11 @@ function solveInfo(grid, n, exits){
     if(grid[r][c]) continue;
     for(const d of DKEYS){
       const t = trace(grid,n,r,c,d);
-      if(t.beams.some(b=>b.absorbed)) continue;        // 한 갈래라도 흡수되면 실패 발사
+      // 일반 발사만 흡수로 실패합니다. 프리즘 발사는 죽은 갈래를 무효로 넘깁니다.
+      if(t.splits===0 && t.beams.some(b=>b.absorbed)) continue;
       const hits = t.beams.filter(b => exits.some(e=>e.key===b.exit));
       if(!hits.length) continue;
-      const sc = shotScore(hits, exits, t.beams.length);
+      const sc = shotScore(hits, exits, t.beams);
       if(sc > maxScore) maxScore = sc;
       if(t.splits===0){ ok = true; if(sc > safeBest) safeBest = sc; }
       else { prismOk = true; if(hits.length > prismMulti) prismMulti = hits.length; }
@@ -403,16 +430,22 @@ function solveInfo(grid, n, exits){
 }
 
 /* 한 발의 기본 점수.
-   여러 갈래가 출구에 닿으면 '난사 보너스'가 붙습니다 (정밀 계산이 아니라 갈래 수 기반). */
-const SPLIT_BONUS = [1, 1, 1.5, 2, 2];      // 도달 갈래 수 → 배율
-function shotScore(hits, exits, beamCount){
+   점수의 뼈대는 '출구에 닿은 갈래 중 가장 긴 것'이고, 여기에 '난사 보너스'가 붙습니다.
+
+   보너스는 **보드 밖으로 나간 갈래 수**를 셉니다 — 정답 출구가 아니어도 됩니다.
+   프리즘의 값은 "갈래를 살려서 내보냈다"에 있고, 세 갈래가 모두 정답 출구로 모이는 것은
+   기하학적으로 거의 불가능하기 때문입니다. 흡수·무한반사로 죽은 갈래는 세지 않습니다.
+   갈래가 하나뿐인 일반 발사는 나간 갈래도 1개라 배율 1 — 예전과 값이 같습니다. */
+const SPLIT_BONUS = [1, 1, 1.5, 2, 2];      // 보드를 벗어난 갈래 수 → 배율
+function shotScore(hits, exits, beams){
   let best = 0;
   for(const b of hits){
     const e = exits.find(x=>x.key===b.exit);
     const v = b.path.length * 10 * e.mult;
     if(v > best) best = v;
   }
-  const bonus = SPLIT_BONUS[Math.min(hits.length, SPLIT_BONUS.length-1)];
+  const out = beams.filter(b=>b.exit).length;
+  const bonus = SPLIT_BONUS[Math.min(out, SPLIT_BONUS.length-1)];
   return Math.round(best * bonus);
 }
 
@@ -469,21 +502,36 @@ function applyFlip(lv, n){
   return { ...lv, grid, maxScore: info.maxScore || lv.maxScore, safeBest: info.safeBest };
 }
 
-/* 한 발의 결과 판정 — 클라이언트와 서버가 반드시 같은 답을 내야 합니다. */
+/* 한 발의 결과 판정 — 클라이언트와 서버가 반드시 같은 답을 내야 합니다.
+
+   갈래가 하나인 일반 발사와 프리즘으로 갈라진 발사의 규칙이 다릅니다.
+
+   일반 발사(splits===0)
+     소멸 타일에 걸리면 실패. 예전과 같습니다.
+
+   프리즘 발사(splits>=1)
+     소멸·벽·무한반사로 끝난 갈래는 **그 갈래만 무효**이고 판을 실패로 만들지 않습니다.
+     최소 1갈래가 실제 출구에 닿으면 클리어이고, 전부 죽으면 실패입니다.
+     한 갈래만 흡수돼도 전부 실패로 처리하던 예전 규칙에서는 프리즘이
+     위험만 있고 보상이 없는 함정이었습니다. */
 function judgeShot(grid, n, exits, r, c, d){
   const t = trace(grid, n, r, c, d);
-  const absorbed = t.beams.some(b=>b.absorbed);
   const hits = t.beams.filter(b => exits.some(e=>e.key===b.exit));
-  // 소멸 타일에 한 갈래라도 걸리면 판 전체가 실패입니다 (프리즘 도박의 대가)
-  if(absorbed) return { ok:false, reason:'absorbed', beams:t.beams, splits:t.splits };
+
+  if(t.splits === 0 && t.beams.some(b=>b.absorbed))
+    return { ok:false, reason:'absorbed', beams:t.beams, splits:t.splits };
+
   if(!hits.length){
-    const loop = t.beams.every(b=>b.loop);
-    return { ok:false, reason:loop?'loop':'miss', beams:t.beams, splits:t.splits };
+    // 실패 사유는 '모든 갈래가 같은 이유로 죽었을 때'만 그 이유로 알려줍니다
+    const reason = t.beams.every(b=>b.absorbed) ? 'absorbed'
+                 : t.beams.every(b=>b.loop)     ? 'loop'
+                 : 'miss';
+    return { ok:false, reason, beams:t.beams, splits:t.splits };
   }
   const bestBeam = hits.reduce((a,b)=> b.path.length>a.path.length ? b : a);
   return {
     ok:true, beams:t.beams, splits:t.splits, hits,
-    base: shotScore(hits, exits, t.beams.length),
+    base: shotScore(hits, exits, t.beams),
     cells: bestBeam.path.length,
     mult: exits.find(e=>e.key===bestBeam.exit).mult,
     splitHits: hits.length
@@ -634,6 +682,7 @@ const API = {
   hashSeed, makeRng, rndOf, pickOf,
   boardSizeFor, timeLimitFor, trace, simulate, countBounces, genLevel,
   judgeShot, shotScore, solveInfo, hazardPlan,
+  hasSplitExitShot, onSolutionPath, protectedCells, bestPathCells,
   genFeverRow, newFeverRound, feverSim, feverBest,
   shotGain, feverGain, replay,
   shareCode, parseShareCode, dailySeed, freeSeed, isFreeSeed

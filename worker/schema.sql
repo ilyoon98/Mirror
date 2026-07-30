@@ -13,7 +13,8 @@ CREATE TABLE IF NOT EXISTS runs (
   level        INTEGER,
   nick         TEXT,               -- 서버가 생성 (자유 입력을 받지 않습니다)
   events       TEXT,               -- 감사용 원본 로그
-  ip_hash      TEXT                -- 솔트 섞은 해시. 평문 IP 는 저장하지 않습니다
+  ip_hash      TEXT,               -- 솔트 섞은 해시. 평문 IP 는 저장하지 않습니다
+  client_id    TEXT                -- 기기 식별자(브라우저가 만들어 보관). 런 재사용 기준
 );
 
 -- 오늘의 판 순위: 시드별 상위 N
@@ -21,6 +22,7 @@ CREATE INDEX IF NOT EXISTS idx_board ON runs (seed, status, rank_score DESC);
 -- 자유 플레이 순위: 규칙 버전별 상위 N (주력 순위표)
 CREATE INDEX IF NOT EXISTS idx_free  ON runs (mode, protocol, status, rank_score DESC);
 -- 열린 런 재사용 조회 + 시간당 런 상한
-CREATE INDEX IF NOT EXISTS idx_ip    ON runs (ip_hash, started_at);
+CREATE INDEX IF NOT EXISTS idx_ip     ON runs (ip_hash, started_at);
+CREATE INDEX IF NOT EXISTS idx_client ON runs (client_id, started_at);
 -- 오래된 open 런 정리용
 CREATE INDEX IF NOT EXISTS idx_started ON runs (started_at);

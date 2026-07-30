@@ -31,8 +31,12 @@ function cors(env, req){
 const json = (data, status, extra) =>
   new Response(JSON.stringify(data), { status: status||200, headers: {...JSON_HEADERS, ...extra} });
 
-/* 닉네임: 자유 입력을 받지 않습니다.
-   부적절한 표현·개인정보 관리 책임을 지지 않기 위해 서버가 만들어 줍니다. */
+/* 닉네임 — 플레이어가 직접 적은 이름을 씁니다.
+   비워 두면 서버가 만들어 줍니다(예전 방식).
+
+   자유 입력을 받으면 부적절한 표현·개인정보가 순위표에 올라올 수 있습니다.
+   길이·제어문자·링크만 막아 두었고, 표현 자체를 걸러내지는 않습니다.
+   문제가 되면 금지어 목록을 여기에 추가하세요. */
 const ADJ = ['빠른','고요한','날카로운','신중한','또렷한','대담한','정확한','침착한'];
 const NOUN= ['거울','광선','프리즘','반사','섬광','각도','굴절','초점'];
 function makeNick(rand){
@@ -40,6 +44,33 @@ function makeNick(rand){
   const n = NOUN[Math.floor(rand()*NOUN.length)];
   return `${a}${n}-${Math.floor(rand()*900+100)}`;
 }
+
+const NAME_MAX = 12;
+/* 제어문자·폭 없는 문자 제거.
+   정규식 문자 클래스에 넣으면 소스에 리터럴 제어문자가 박혀 파싱이 깨지므로
+   코드포인트로 걸러냅니다. 클라이언트의 stripCtl 과 같은 규칙이어야 합니다.
+   최종 판정은 여기(서버)가 합니다 — 클라이언트 정리는 편의일 뿐입니다. */
+function stripCtl(s){
+  return [...String(s)].filter(ch=>{
+    const cp = ch.codePointAt(0);
+    return !(cp < 0x20 || cp === 0x7f || (cp >= 0x200b && cp <= 0x200f)
+             || cp === 0x2028 || cp === 0x2029);
+  }).join('');
+}
+function cleanName(v){
+  if(typeof v !== 'string') return null;
+  let s = stripCtl(v)
+           .replace(/\s+/g, ' ')
+           .trim();
+  if(/https?:\/\//i.test(s)) return null;                  // 링크는 받지 않습니다
+  s = [...s].slice(0, NAME_MAX).join('');                   // 이모지를 쪼개지 않도록 코드포인트 단위
+  return s.length ? s : null;
+}
+
+/* 기기 식별자 — 브라우저가 만들어 보관하는 임의 문자열입니다.
+   개인정보가 아니고, 서버는 '같은 기기인가'만 봅니다. */
+const cleanClientId = v =>
+  (typeof v === 'string' && /^[A-Za-z0-9_-]{8,64}$/.test(v)) ? v : null;
 
 /* ─── 시드 쇼핑 방어 ───
    자유 플레이가 순위표의 주력이 되면서 새로 생긴 구멍입니다.
@@ -53,9 +84,17 @@ function makeNick(rand){
    "무료 무한 재추첨"에서 "런 하나 또는 10분"으로 올라갑니다.
 
    IP 는 평문으로 저장하지 않습니다. 순위표에 필요한 정보가 아니고,
-   있으면 유출 대상이 되기만 하므로 솔트를 섞은 해시만 남깁니다. */
+   있으면 유출 대상이 되기만 하므로 솔트를 섞은 해시만 남깁니다.
+
+   한계: 재사용 기준을 IP 가 아니라 브라우저가 보낸 client_id 로 잡습니다.
+   IP 로 잡았더니 사무실·집·모바일 NAT 처럼 IP 를 공유하는 두 사람이 한 런을 공유해
+   뒤에 제출한 쪽이 등재에 실패했습니다(같은 판을 받는 문제도 있었습니다).
+   client_id 는 클라이언트가 만드는 값이라 매번 새로 만들면 재사용을 피할 수 있습니다.
+   그래서 재추첨을 실제로 막는 것은 아래의 **IP 기준 시간당 상한**이고,
+   재사용은 '새로고침 복구 + 손쉬운 재추첨 차단' 정도로 봐야 합니다. */
 const REUSE_MS   = 10*60*1000;   // 열린 런을 같은 시드로 돌려주는 기간
-const START_CAP  = 40;           // 같은 IP 의 시간당 런 시작 상한(자동화 backstop)
+const START_CAP  = 40;           // 같은 기기의 시간당 런 시작 상한
+const IP_CAP     = 200;          // 같은 IP 의 시간당 런 시작 상한(공유 IP 를 막지 않을 만큼 넉넉히)
 
 async function sha256hex(s){
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
@@ -89,31 +128,49 @@ async function handleRunStart(env, req){
   const mode = body.mode==='daily' ? 'daily' : 'free';   // 기본이 자유 플레이입니다
   const now  = Date.now();
   const iph  = await ipHash(env, req);
+  const cid  = cleanClientId(body.clientId);
+  const hour = now - 60*60*1000;
 
-  // 열려 있는 런이 있으면 그대로 돌려줍니다 (시드 쇼핑 방어 + 새로고침 복구)
-  const open = await env.DB.prepare(
-    `SELECT id, seed, started_at FROM runs
-      WHERE ip_hash=? AND mode=? AND protocol=? AND status='open' AND started_at > ?
-      ORDER BY started_at DESC LIMIT 1`
-  ).bind(iph, mode, Core.PROTOCOL, now - REUSE_MS).first();
+  /* 열려 있는 런이 있으면 그대로 돌려줍니다 (새로고침 복구 + 손쉬운 재추첨 차단).
+     같은 기기에서만 재사용합니다 — IP 로 묶으면 같은 네트워크의 다른 사람 런을
+     가져가 버려서, 뒤에 제출한 쪽이 '이미 제출된 런' 으로 등재에 실패합니다.
+     client_id 가 없는 옛 클라이언트는 예전처럼 IP 로 묶습니다(서로 섞이지 않게 분리). */
+  const open = cid
+    ? await env.DB.prepare(
+        `SELECT id, seed FROM runs
+          WHERE client_id=? AND mode=? AND protocol=? AND status='open' AND started_at > ?
+          ORDER BY started_at DESC LIMIT 1`
+      ).bind(cid, mode, Core.PROTOCOL, now - REUSE_MS).first()
+    : await env.DB.prepare(
+        `SELECT id, seed FROM runs
+          WHERE client_id IS NULL AND ip_hash=? AND mode=? AND protocol=? AND status='open' AND started_at > ?
+          ORDER BY started_at DESC LIMIT 1`
+      ).bind(iph, mode, Core.PROTOCOL, now - REUSE_MS).first();
   if(open)
     return { runId:open.id, seed:open.seed, serverTime:now, resumed:true };
 
-  // 자동화 backstop — 정상 플레이는 한 시간에 40런을 넘기지 않습니다
-  const recent = await env.DB.prepare(
+  // 자동화 backstop — 기기 기준으로 조이고, IP 기준은 공유 IP 를 막지 않을 만큼만 둡니다
+  if(cid){
+    const byC = await env.DB.prepare(
+      'SELECT COUNT(*) AS c FROM runs WHERE client_id=? AND started_at > ?'
+    ).bind(cid, hour).first();
+    if((byC?.c ?? 0) >= START_CAP)
+      return { error:'런을 너무 자주 시작했습니다. 잠시 후 다시 시도하세요.', status:429 };
+  }
+  const byIp = await env.DB.prepare(
     'SELECT COUNT(*) AS c FROM runs WHERE ip_hash=? AND started_at > ?'
-  ).bind(iph, now - 60*60*1000).first();
-  if((recent?.c ?? 0) >= START_CAP)
-    return { error:'런을 너무 자주 시작했습니다. 잠시 후 다시 시도하세요.', status:429 };
+  ).bind(iph, hour).first();
+  if((byIp?.c ?? 0) >= IP_CAP)
+    return { error:'이 네트워크에서 런이 너무 많습니다. 잠시 후 다시 시도하세요.', status:429 };
 
   // 시드는 서버가 발급합니다. 클라이언트가 고른 시드는 받지 않습니다.
   const seed = mode==='daily' ? Core.dailySeed(now)
                               : Core.freeSeed(now, ()=>Math.random());
   const id   = crypto.randomUUID();
   await env.DB.prepare(
-    `INSERT INTO runs (id, seed, mode, protocol, started_at, status, ip_hash)
-     VALUES (?,?,?,?,?,?,?)`
-  ).bind(id, seed, mode, Core.PROTOCOL, now, 'open', iph).run();
+    `INSERT INTO runs (id, seed, mode, protocol, started_at, status, ip_hash, client_id)
+     VALUES (?,?,?,?,?,?,?,?)`
+  ).bind(id, seed, mode, Core.PROTOCOL, now, 'open', iph, cid).run();
   return { runId:id, seed, serverTime:now };
 }
 
@@ -146,7 +203,8 @@ async function handleSubmit(env, req){
   if(elapsed > 12*60*60*1000)
     return { error:'런이 너무 오래됐습니다', status:400 };
 
-  const nick = makeNick(Core.makeRng(runId));
+  // 플레이어가 적은 이름을 씁니다. 비었거나 규칙에 안 맞으면 서버가 만들어 줍니다.
+  const nick = cleanName(body.name) || makeNick(Core.makeRng(runId));
   await env.DB.batch([
     env.DB.prepare(
       'UPDATE runs SET status=?, submitted_at=?, rank_score=?, level=?, nick=?, events=? WHERE id=?'

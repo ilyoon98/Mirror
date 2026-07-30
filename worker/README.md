@@ -50,11 +50,15 @@ wrangler d1 execute mirror-rush --file=worker/schema.sql --remote
 ### 이미 배포된 데이터베이스라면
 
 `schema.sql` 은 다시 실행할 수 없습니다(표가 이미 있습니다).
-`worker/migrations/` 의 변경만 순서대로 적용하세요. **v1.3 은 이 단계가 필수입니다** —
-`protocol`·`ip_hash` 열이 없으면 런 시작이 실패합니다.
+`worker/migrations/` 의 변경만 순서대로 적용하세요. **배포보다 먼저 해야 합니다** —
+열이 없으면 런 시작이 실패해 순위 기능이 통째로 죽습니다.
 
 ```bash
 wrangler d1 execute mirror-rush --file=worker/migrations/001-free-board.sql --remote
+```
+
+```bash
+wrangler d1 execute mirror-rush --file=worker/migrations/002-client-id.sql --remote
 ```
 
 ## 3. 배포
@@ -115,8 +119,14 @@ curl https://mirror-rush.<계정이름>.workers.dev/api/health
 
 ## 그 밖에
 
-- 닉네임은 **서버가 생성**합니다(`날카로운반사-800` 형태). 자유 입력을 받지 않는 이유는
-  부적절한 표현과 개인정보 관리 책임을 지지 않기 위해서입니다.
+- 이름은 **플레이어가 직접 적습니다**(v1.4). 비워 두면 서버가 지어 줍니다
+  (`날카로운반사-800` 형태). `cleanName` 이 12자·제어문자·링크만 막고
+  **표현 자체는 걸러내지 않습니다** — 문제가 되면 금지어 목록을 그 함수에 추가하세요.
+  v1.1~v1.3 은 이 책임을 피하려고 자유 입력을 받지 않았는데, v1.4 에서 뒤집은 결정입니다.
+- 열린 런 재사용은 **기기 식별자(`client_id`) 기준**입니다. IP 기준으로 묶었더니
+  같은 네트워크의 두 사람이 한 런을 공유해 뒤에 제출한 쪽이 409 로 실패했습니다.
+  `client_id` 는 클라이언트가 만드는 값이라 재추첨을 완전히 막지는 못합니다 —
+  실제 브레이크는 IP 기준 시간당 상한(`IP_CAP`)입니다.
 - 순위표는 공개됩니다. 한번 올라간 기록은 지워도 캐시에 남을 수 있습니다.
 - **IP 는 평문으로 저장하지 않습니다.** 열린 런 재사용과 시간당 상한에만 쓰이며,
   솔트를 섞은 해시 32자만 남깁니다. 솔트는 `IP_SALT` 로 지정할 수 있습니다.
@@ -128,8 +138,8 @@ curl https://mirror-rush.<계정이름>.workers.dev/api/health
 
 | 메서드 | 경로 | 설명 |
 |---|---|---|
-| POST | `/api/run` | 런 시작. `{mode:'free'\|'daily'}` → `{runId, seed, serverTime, resumed?}`. 열린 런이 있으면 `resumed:true` 로 같은 런을 반환 (429 = 시간당 상한) |
-| POST | `/api/submit` | `{runId, events}` 제출 → 서버가 재생·채점 후 `{rank, level, nick, position, mode}` |
+| POST | `/api/run` | 런 시작. `{mode:'free'\|'daily', clientId}` → `{runId, seed, serverTime, resumed?}`. 같은 기기에 열린 런이 있으면 `resumed:true` 로 같은 런을 반환 (429 = 시간당 상한) |
+| POST | `/api/submit` | `{runId, events, name}` 제출 → 서버가 재생·채점 후 `{rank, level, nick, position, mode}`. `name` 은 서버가 정리하며, 비었거나 규칙 위반이면 서버가 지어 줍니다 |
 | GET | `/api/board?mode=free&days=&limit=` | **자유 플레이 전체 순위.** 같은 `protocol` 의 모든 런. `days` 생략 = 전체 기간 |
 | GET | `/api/board?mode=daily[&seed=]&limit=` | 오늘의 판 순위(시드별). `seed=` 만 주는 옛 호출도 daily 로 처리 |
 | GET | `/api/health` | 상태 확인 |

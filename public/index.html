@@ -302,6 +302,11 @@
   .btn.ghost:hover{border-color:var(--cyan);color:var(--cyan);background:rgba(61,240,255,.12)}
   .btn.tiny{margin:0;padding:.5rem .8rem;font-size:.75rem;letter-spacing:.06em;flex:none}
   .modes{display:flex;gap:.5rem;flex-wrap:wrap;justify-content:center}
+  /* 이름 입력 — 순위표에 그대로 올라가는 값이라 시작 화면에 둡니다 */
+  .namebox{width:100%;max-width:16rem;display:flex;flex-direction:column;gap:.25rem}
+  .namebox .fld{text-align:left}
+  .namebox .inp{flex:1;text-align:center;font-size:.875rem}
+  .namebox .hintrow{text-align:left;line-height:1.5}
 
   /* 기록 비교 */
   .sharescore{margin:0;font-size:.875rem;color:var(--dim)}
@@ -401,7 +406,7 @@
     <button class="verbtn" id="btnBoard" type="button"
             aria-label="자유 플레이 전체 순위 보기">순위</button>
     <button class="verbtn" id="btnVer" type="button"
-            aria-label="현재 버전 v1.3, 업데이트 내역 보기">v1.3</button>
+            aria-label="현재 버전 v1.4, 업데이트 내역 보기">v1.4</button>
   </h1>
 
   <div class="hud">
@@ -462,6 +467,16 @@
         <em>칸수 × 배수</em>가 큰 쪽을 골라야 고득점!<br>
         콤보 5마다 <em>FEVER</em> — 1×5 레인 연사!
       </p>
+      <div class="namebox">
+        <label class="fld" for="playerName">순위표에 쓸 이름</label>
+        <div class="row">
+          <input class="inp" id="playerName" maxlength="12" autocomplete="off"
+                 placeholder="이름 (최대 12자)" aria-describedby="nameHint">
+        </div>
+        <p class="hintrow" id="nameHint">이 기기에 저장돼 다음 판에도 같은 이름으로 등재됩니다.
+          비워 두면 서버가 임의로 지어 줍니다.</p>
+      </div>
+
       <div class="modes">
         <button class="btn" id="btnStartFree" type="button">자유 플레이</button>
         <button class="btn ghost" id="btnStartDaily" type="button">오늘의 판</button>
@@ -499,6 +514,14 @@
     <div class="screen hide" id="screenLog">
       <h2>업데이트 내역</h2>
       <div class="loglist">
+        <h3>v1.4 <em>이름 입력 · 등재 실패 수정</em></h3>
+        <ul>
+          <li><b>순위표에 쓸 이름을 직접 적습니다.</b> 시작 화면에서 한 번 적으면
+              이 기기에 저장돼 다음 판에도 같은 이름으로 등재됩니다</li>
+          <li><b>등재 실패 수정</b> — 같은 네트워크(집·사무실·모바일)의 두 사람이
+              한 판을 공유해 뒤에 끝낸 쪽이 <b>"이미 제출된 런"</b>으로 등재에 실패했습니다.
+              이제 기기별로 판이 따로 나옵니다</li>
+        </ul>
         <h3>v1.3 <em>자유 플레이 순위표</em></h3>
         <ul>
           <li><b>자유 플레이가 메인</b>이 되었습니다. 이제 자유 플레이도 <b>전체 순위에 등재</b>됩니다</li>
@@ -700,6 +723,22 @@ const FX_KEY    = 'mirrorrush.fx';
 const NICK_KEY  = 'mirrorrush.nick';
 const DAILY_KEY = 'mirrorrush.daily';   // {seed, rank, level}
 const FREE_KEY  = 'mirrorrush.free';    // {rank, level} — 자유 플레이 최고 랭킹 점수
+const CLIENT_KEY= 'mirrorrush.client';  // 기기 식별자 — 런 재사용을 이 값으로 묶습니다
+
+/* 기기 식별자.
+   서버의 '열린 런 재사용'을 IP 로 묶었더니 같은 네트워크의 다른 사람 런을 가져가
+   등재가 실패했습니다. 브라우저마다 다른 값을 만들어 보관합니다.
+   개인정보가 아니고, 지우면 새 기기로 취급됩니다. */
+function clientId(){
+  try{
+    let v = localStorage.getItem(CLIENT_KEY);
+    if(v && /^[A-Za-z0-9_-]{8,64}$/.test(v)) return v;
+    v = (crypto.randomUUID ? crypto.randomUUID().replace(/-/g,'')
+                           : Math.random().toString(36).slice(2) + Date.now().toString(36));
+    localStorage.setItem(CLIENT_KEY, v);
+    return v;
+  }catch(e){ return null; }              // localStorage 를 못 쓰면 서버가 IP 로 처리합니다
+}
 
 /* 코어 래퍼 — 호출부는 그대로 두고 시드 rng·현재 방 크기만 주입합니다 */
 const simulate  = (grid,r,c,d) => MC.simulate(grid, N, r, c, d);
@@ -1664,11 +1703,41 @@ function buildResult(){
   renderCompare();
 }
 
+/* 플레이어 이름 — 이 기기에 저장해 매 판 같은 이름으로 등재됩니다.
+   서버 규칙과 같게 12자로 자르고 제어문자·링크를 막습니다(최종 판정은 서버가 합니다). */
+const NAME_MAX = 12;
+/* 제어문자·폭 없는 문자 제거.
+   정규식 문자 클래스에 넣으면 소스에 리터럴 제어문자가 박혀 파싱이 깨지므로
+   코드포인트로 걸러냅니다. 서버의 stripCtl 과 같은 규칙이어야 합니다. */
+function stripCtl(s){
+  return [...String(s)].filter(ch=>{
+    const cp = ch.codePointAt(0);
+    return !(cp < 0x20 || cp === 0x7f || (cp >= 0x200b && cp <= 0x200f)
+             || cp === 0x2028 || cp === 0x2029);
+  }).join('');
+}
+function cleanName(v){
+  if(typeof v !== 'string') return '';
+  let s = stripCtl(v)
+           .replace(/\s+/g,' ').trim();
+  if(/https?:\/\//i.test(s)) return '';
+  return [...s].slice(0, NAME_MAX).join('');
+}
+function loadName(){
+  try{ return cleanName(localStorage.getItem(NICK_KEY) || ''); }catch(e){ return ''; }
+}
+function saveName(v){
+  const s = cleanName(v);
+  try{ s ? localStorage.setItem(NICK_KEY, s) : localStorage.removeItem(NICK_KEY); }catch(e){}
+  return s;
+}
+// 기록 코드용 — 이름을 안 적었으면 이 기기에서 계속 쓸 임시 이름을 만들어 둡니다
 function getNick(){
-  try{ const n=localStorage.getItem(NICK_KEY); if(n) return n; }catch(e){}
-  const n = '거울' + Math.floor(Math.random()*900+100);
-  try{ localStorage.setItem(NICK_KEY, n); }catch(e){}
-  return n;
+  const n = loadName();
+  if(n) return n;
+  const t = '거울' + Math.floor(Math.random()*900+100);
+  try{ localStorage.setItem(NICK_KEY, t); }catch(e){}
+  return t;
 }
 function loadDaily(){ try{ return JSON.parse(localStorage.getItem(DAILY_KEY)||'null'); }catch(e){ return null; } }
 function saveDaily(v){ try{ localStorage.setItem(DAILY_KEY, JSON.stringify(v)); }catch(e){} }
@@ -1730,7 +1799,8 @@ async function apiOpenRun(mode){
   S.runId = null; S.myEntry = null; S.runError = null;
   if(!apiOn()) return null;
   try{
-    const r = await api('/api/run', {method:'POST', body:JSON.stringify({mode})});
+    const r = await api('/api/run', {method:'POST',
+      body:JSON.stringify({mode, clientId:clientId()})});
     S.runId = r.runId;
     return r;                       // {runId, seed, serverTime, resumed}
   }catch(err){
@@ -1751,10 +1821,10 @@ async function apiSubmit(){
   const where = S.mode==='free' ? '자유 플레이 전체' : '오늘의 판';
   try{
     const r = await api('/api/submit', {method:'POST',
-      body:JSON.stringify({runId, events:S.log})});
+      body:JSON.stringify({runId, events:S.log, name:loadName()})});
     S.myEntry = r;
     $('finalDetail').textContent =
-      `LEVEL ${S.level} 도달 · 랭킹 ${S.rank.toLocaleString()} · ${where} ${r.position}위`;
+      `LEVEL ${S.level} 도달 · 랭킹 ${S.rank.toLocaleString()} · ${where} ${r.position}위 (${r.nick})`;
     say(`${where} ${r.position}위로 등재됐습니다.`);
     return r;
   }catch(err){
@@ -1842,6 +1912,8 @@ async function loadBoard(){
 function refreshStartBest(){
   const b = loadBest();
   $('startBest').textContent = b ? `BEST ${b.toLocaleString()}` : '';
+  const nameEl = $('playerName');
+  if(nameEl && document.activeElement !== nameEl) nameEl.value = loadName();
 
   const f = loadFree();
   $('freeInfo').textContent = f
@@ -1929,6 +2001,11 @@ $('btnStartFree').onclick = ()=>{ SFX.btn(); startGame('free'); };
 $('btnRetry').onclick     = ()=>{ SFX.btn(); startGame(); };
 $('btnOpenShare').onclick = ()=> openBoard();
 $('btnBoard').onclick     = ()=> openBoard();
+$('playerName').addEventListener('input', e=>{ saveName(e.target.value); });
+$('playerName').addEventListener('change', e=>{ e.target.value = saveName(e.target.value); });
+$('playerName').addEventListener('keydown', e=>{
+  if(e.key==='Enter'){ e.preventDefault(); e.target.blur(); startGame('free'); }
+});
 $('tabFree').onclick      = ()=>{ if(bdTab!=='free'){ bdTab='free'; SFX.btn(); loadBoard(); } };
 $('tabDaily').onclick     = ()=>{ if(bdTab!=='daily'){ bdTab='daily'; SFX.btn(); loadBoard(); } };
 $('rangeAll').onclick     = ()=>{ if(bdDays!==0){ bdDays=0; SFX.btn(); loadBoard(); } };
