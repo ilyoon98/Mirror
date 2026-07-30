@@ -333,6 +333,20 @@
   .ctl.fire:hover{box-shadow:0 0 26px rgba(61,240,255,.4)}
   .range:hover, .tab:hover{box-shadow:0 0 14px rgba(61,240,255,.2)}
 
+  /* 켜짐/꺼짐을 색으로 구분 — 라벨 글자만으로는 눈에 안 들어옵니다 */
+  #btnSound[aria-pressed="true"], #btnFx[aria-pressed="true"]{
+    border-color:var(--cyan); color:var(--cyan);
+    background:linear-gradient(180deg,#16283a,#101a2a);
+    box-shadow:0 0 14px rgba(61,240,255,.22);
+  }
+  #btnSound[aria-pressed="true"] .ico, #btnFx[aria-pressed="true"] .ico{color:var(--cyan)}
+  #btnSound[aria-pressed="false"], #btnFx[aria-pressed="false"]{
+    border-color:#2a2f4d; color:var(--dim);
+    background:linear-gradient(180deg,#14162a,#0e101f);
+  }
+  #btnSound[aria-pressed="false"] .ico, #btnFx[aria-pressed="false"] .ico{color:#4a5178}
+  #btnSound[aria-pressed="false"] kbd, #btnFx[aria-pressed="false"] kbd{color:#4a5178}
+
   /* 훑고 지나가는 광택 */
   .btn::after, .ctl::after{
     content:'';position:absolute;inset:0;pointer-events:none;
@@ -447,7 +461,7 @@
   .fx-prism2{fill:none;stroke:#8ff3ff;stroke-width:calc(2px * var(--k));opacity:.8}
   .fx-suck{fill:none;stroke:var(--pink);stroke-width:calc(3px * var(--k))}
   .fx-absorbring{fill:none;stroke:var(--pink);stroke-width:calc(2.4px * var(--k))}
-  #gFx{mix-blend-mode:screen}
+  #gFx{mix-blend-mode:screen;clip-path:url(#fxClip)}
   .floatgain{position:absolute;left:50%;top:-.1rem;transform:translateX(-50%);
     font-size:.8125rem;font-weight:800;color:var(--green);pointer-events:none;
     animation:floatup .9s ease-out forwards}
@@ -538,7 +552,7 @@
       <button class="btn ghost tiny" id="btnHomeHelp" type="button">도움말</button>
     </div>
     <p class="hintrow homefoot">키보드: 방향키 이동 · Q/E 회전 · Space 발사
-      · <b>v1.9</b></p>
+      · <b>v1.9.1</b></p>
   </section>
 
   <h1 class="title">
@@ -547,7 +561,7 @@
     <button class="verbtn" id="btnBoard" type="button"
             aria-label="자유 플레이 전체 순위 보기">순위</button>
     <button class="verbtn" id="btnVer" type="button"
-            aria-label="현재 버전 v1.9, 업데이트 내역 보기">v1.9</button>
+            aria-label="현재 버전 v1.9.1, 업데이트 내역 보기">v1.9.1</button>
   </h1>
 
   <div class="hud">
@@ -576,6 +590,8 @@
          aria-label="5×5 거울 방. 방향키로 칸을 고르고 Enter로 레이저를 설치한 뒤, Q 또는 E로 회전하고 Space로 발사합니다."
          aria-describedby="live">
       <defs>
+        <!-- 이펙트 전용 클립 — 판 주변 28px 여유까지만 그립니다 -->
+        <clipPath id="fxClip"><rect x="-28" y="-28" width="508" height="508"/></clipPath>
         <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
           <feGaussianBlur stdDeviation="5" result="b"/>
           <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
@@ -693,7 +709,14 @@
   <div class="screen hide" id="screenLog">
     <h2>업데이트 내역</h2>
     <div class="loglist">
-      <h3>v1.9 <em>반짝반짝 화끈화끈</em></h3>
+      <h3>v1.9.1 <em>연출 다듬기</em></h3>
+      <ul>
+        <li><b>이펙트가 판 밖으로 날아가던 문제를 고쳤습니다.</b> EXIT 폭발 링이 버튼과
+            하단 설명 위까지 퍼졌습니다</li>
+        <li><b>연출·소리 버튼이 켜지면 시안색, 꺼지면 회색</b>으로 바뀝니다</li>
+        <li>버전 표기를 <b>x.x.x</b> 형식으로 바꿨습니다</li>
+      </ul>
+      <h3>v1.9.0 <em>반짝반짝 화끈화끈</em></h3>
       <ul>
         <li><b>버튼을 누르면 물결이 퍼집니다.</b> 눌림 반응과 광택도 붙었습니다</li>
         <li><b>점수·콤보가 오를 때 금빛으로 튑니다.</b> 시간이 10초 아래로 떨어지면 붉게 맥박칩니다</li>
@@ -705,7 +728,7 @@
             <b>FLIP</b>은 모든 거울에서 순서대로 링이 퍼집니다</li>
         <li>전부 <b>F</b>로 끌 수 있고, OS의 동작 줄이기 설정도 그대로 따릅니다</li>
       </ul>
-      <h3>v1.8 <em>난이도 곡선 개편</em></h3>
+      <h3>v1.8.0 <em>난이도 곡선 개편</em></h3>
       <ul>
         <li><b>7×7 방을 없앴습니다.</b> 훑는 비용만 늘리고 타일이 작아져 누르기 불편했습니다.
             이제 <b>6×6까지</b>만 커집니다</li>
@@ -714,7 +737,7 @@
             줄여, 찍어서 맞기 어렵게 했습니다 (거울 정답 5.8개 → 3.6개)</li>
         <li>규칙이 바뀌어 <b>순위표를 새로 시작</b>했습니다</li>
       </ul>
-      <h3>v1.7 <em>화려한 피격 이펙트 · 기믹 조기 등장</em></h3>
+      <h3>v1.7.0 <em>화려한 피격 이펙트 · 기믹 조기 등장</em></h3>
       <ul>
         <li><b>거울에 닿을 때 이펙트가 확 화려해졌습니다.</b> 섬광 · 이중 링 ·
             거울면을 따라 튀는 불꽃 · 위로 흩어지는 잔불이 겹칩니다</li>
@@ -723,7 +746,7 @@
             첫 피버를 본 직후에 새 기믹이 열리도록 앞당겼습니다 (예전 8 / 10)</li>
         <li>연출이 부담스러우면 <b>F</b> 로 끌 수 있습니다</li>
       </ul>
-      <h3>v1.6 <em>60초 한 판 · 홈 화면</em></h3>
+      <h3>v1.6.0 <em>60초 한 판 · 홈 화면</em></h3>
       <ul>
         <li><b>시간이 런 전체로 하나</b>가 됐습니다. 판마다 초기화되지 않고 <b>60초</b>를 함께 씁니다.
             0이 되면 그 자리에서 끝이고, <b>라이프는 없습니다</b> — 틀린 발사의 대가는 거기에 쓴 시간입니다</li>
@@ -734,7 +757,7 @@
         <li><b>홈 화면</b>과 <b>튜토리얼</b>이 생겼습니다. 이름은 <b>순위표</b>에서 적습니다</li>
         <li>거울·소멸 타일·프리즘에 닿을 때 이펙트가 추가됐습니다</li>
       </ul>
-      <h3>v1.5 <em>프리즘 · 단방향 거울</em></h3>
+      <h3>v1.5.0 <em>프리즘 · 단방향 거울</em></h3>
       <ul>
         <li><b>프리즘</b>이 레벨 6부터 등장합니다. 빔이 <b>좌우 두 갈래</b>로 갈라지고,
             한 갈래만 EXIT로 나가도 클리어입니다. 보드 밖으로 나간 갈래가 많을수록 배율이 올라갑니다</li>
@@ -743,7 +766,7 @@
         <li>죽은 갈래는 <b>그 갈래만 무효</b>입니다 — 한 갈래가 소멸 타일에 닿아도 판이 실패하지 않습니다</li>
         <li>규칙이 바뀌어 <b>순위표를 새로 시작</b>했습니다. 예전 기록은 그대로 보관돼 있습니다</li>
       </ul>
-      <h3>v1.4 <em>이름 입력 · 등재 실패 수정</em></h3>
+      <h3>v1.4.0 <em>이름 입력 · 등재 실패 수정</em></h3>
       <ul>
         <li><b>순위표에 쓸 이름을 직접 적습니다.</b> 시작 화면에서 한 번 적으면
             이 기기에 저장돼 다음 판에도 같은 이름으로 등재됩니다</li>
@@ -751,7 +774,7 @@
             한 판을 공유해 뒤에 끝낸 쪽이 <b>"이미 제출된 런"</b>으로 등재에 실패했습니다.
             이제 기기별로 판이 따로 나옵니다</li>
       </ul>
-      <h3>v1.3 <em>자유 플레이 순위표</em></h3>
+      <h3>v1.3.0 <em>자유 플레이 순위표</em></h3>
       <ul>
         <li><b>자유 플레이가 메인</b>이 되었습니다. 이제 자유 플레이도 <b>전체 순위에 등재</b>됩니다</li>
         <li>순위표 기본 탭이 <b>자유 플레이</b>입니다. 판은 매번 달라도 레벨 1부터
@@ -761,13 +784,13 @@
             열려 있는 런은 같은 판을 그대로 돌려줍니다</li>
         <li>오늘의 판은 <b>보조 탭</b>으로 그대로 남아 있습니다</li>
       </ul>
-      <h3>v1.2 <em>소멸 타일 · FLIP</em></h3>
+      <h3>v1.2.0 <em>소멸 타일 · FLIP</em></h3>
       <ul>
         <li><b>소멸 타일</b>이 빔을 흡수합니다. 두 출구의 최적 경로는 보호되므로 항상 클리어할 수 있습니다</li>
         <li><b>FLIP</b> — 판마다 1회, 모든 거울이 <b>╱ ↔ ╲</b> 로 동시에 뒤집힙니다</li>
         <li>규칙이 바뀌어 순위표를 새로 시작했습니다 (mr1 → mr2)</li>
       </ul>
-      <h3>v1.1 <em>오늘의 판 · 전체 순위</em></h3>
+      <h3>v1.1.0 <em>오늘의 판 · 전체 순위</em></h3>
       <ul>
         <li><b>오늘의 판</b> — 매일 전 세계가 같은 문제를 풉니다. 그래야 점수 비교가 성립합니다</li>
         <li>우측 상단 <b>순위</b> 버튼에서 언제든 전체 순위를 볼 수 있습니다</li>
@@ -776,13 +799,13 @@
             서버는 점수가 아니라 <b>입력 로그</b>를 받아 직접 재생해 채점합니다</li>
         <li><b>랭킹 점수</b>는 시간 보너스를 뺀 값입니다. 보고된 시각은 검증할 수 없어 제외합니다</li>
       </ul>
-      <h3>v1.0 <em>방 확장 · 라이프 회복</em></h3>
+      <h3>v1.0.0 <em>방 확장 · 라이프 회복</em></h3>
       <ul>
         <li>레벨 13부터 <b>6×6</b>으로 방이 넓어집니다</li>
         <li>피버를 성공하면 <b>라이프 +1</b> (최대 3)</li>
         <li>우측 상단에 버전·업데이트 내역 버튼 추가</li>
       </ul>
-      <h3>v0.9 <em>출구 2개 · 2탭 발사</em></h3>
+      <h3>v0.9.0 <em>출구 2개 · 2탭 발사</em></h3>
       <ul>
         <li>출구가 <b>EXIT(×1)</b>와 <b>EXIT ×2</b> 둘로 갈립니다. ×2 쪽 경로가 더 짧아
             <b>칸수 × 배수</b>를 비교해야 합니다</li>
@@ -790,29 +813,29 @@
         <li>같은 자리를 한 번 더 누르면 발사</li>
         <li>피버 점수가 레인을 가리던 문제 수정</li>
       </ul>
-      <h3>v0.8 <em>연출 복구</em></h3>
+      <h3>v0.8.0 <em>연출 복구</em></h3>
       <ul>
         <li>OS 애니메이션 설정이 꺼져 있으면 레이저 연출이 통째로 사라지던 문제 수정</li>
         <li>연출 on/off 버튼(<b>F</b>) 추가</li>
       </ul>
-      <h3>v0.7 <em>피버 출구 랜덤</em></h3>
+      <h3>v0.7.0 <em>피버 출구 랜덤</em></h3>
       <ul>
         <li>피버 출구가 매 판 좌·우 중 한쪽에 열리고 반대쪽은 벽</li>
         <li>그 레인의 최대 칸수를 뽑으면 <b>최적!</b> 보너스</li>
       </ul>
-      <h3>v0.5 ~ v0.6 <em>피버 개편</em></h3>
+      <h3>v0.5.0 ~ v0.6 <em>피버 개편</em></h3>
       <ul>
         <li>피버가 <b>1×5 레인</b> 미니게임으로 교체 (연타 → 판단)</li>
         <li>거울이 빔을 막는 차단벽으로 동작</li>
       </ul>
-      <h3>v0.3 ~ v0.4 <em>조작 · 접근성 · 연출</em></h3>
+      <h3>v0.3.0 ~ v0.4 <em>조작 · 접근성 · 연출</em></h3>
       <ul>
         <li>설치 → 회전 → 발사 버튼 체계와 전체 키보드 조작</li>
         <li>FEVER 타임, 일시정지, 도움말, 소리 토글</li>
         <li>WCAG 2.2 대비·터치 타깃·스크린리더 안내 적용</li>
         <li>레이저 비행 연출(선단·머즐·충격파·폭발)</li>
       </ul>
-      <h3>v0.1 ~ v0.2 <em>최초 버전</em></h3>
+      <h3>v0.1.0 ~ v0.2 <em>최초 버전</em></h3>
       <ul>
         <li>5×5 거울 방 레이저 퍼즐, 전수 시뮬레이션 기반 레벨 생성</li>
         <li>드래그 조준, 최고 점수 저장, 모바일 레이아웃</li>
