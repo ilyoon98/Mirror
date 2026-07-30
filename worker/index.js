@@ -179,7 +179,7 @@ async function handleSubmit(env, req){
   const { runId, events } = body;
   if(typeof runId!=='string' || !Array.isArray(events))
     return { error:'runId 와 events 가 필요합니다', status:400 };
-  if(events.length > 5000)
+  if(events.length > 2500)
     return { error:'이벤트가 너무 많습니다', status:400 };
 
   const row = await env.DB.prepare(
@@ -200,7 +200,17 @@ async function handleSubmit(env, req){
   const needed  = minElapsedMs(events);
   if(elapsed < needed * 0.7)
     return { error:`실제 경과 시간이 부족합니다 (${Math.round(elapsed/1000)}초 / 최소 ${Math.round(needed*0.7/1000)}초)`, status:400 };
-  if(elapsed > 12*60*60*1000)
+
+  /* 위 검사는 '보고된 시간'을 근거로 하므로, 시간을 0 으로 보고하면 문턱도 0 이 되어
+     스스로 무력해집니다. 그래서 **서버 시계만으로도** 런 길이를 묶습니다.
+     한 발에는 사람이 판을 보고 두 번 누르는 시간이 반드시 들어가므로,
+     실제 경과 시간을 최소 발사 비용으로 나눈 값이 발사 수의 상한입니다. */
+  const shots    = events.reduce((s,e)=> s + (e.k==='s' ? 1 : 0), 0);
+  const maxShots = Math.floor(elapsed / Core.MIN_SHOT_MS) + 5;   // +5 는 시계 오차 여유
+  if(shots > maxShots)
+    return { error:`실제 경과 시간에 비해 발사가 너무 많습니다 (${shots}발 / 최대 ${maxShots}발)`, status:400 };
+
+  if(elapsed > 30*60*1000)
     return { error:'런이 너무 오래됐습니다', status:400 };
 
   // 플레이어가 적은 이름을 씁니다. 비었거나 규칙에 안 맞으면 서버가 만들어 줍니다.

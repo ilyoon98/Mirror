@@ -552,7 +552,7 @@
       <button class="btn ghost tiny" id="btnHomeHelp" type="button">도움말</button>
     </div>
     <p class="hintrow homefoot">키보드: 방향키 이동 · Q/E 회전 · Space 발사
-      · <b>v1.9.1</b></p>
+      · <b>v1.10.0</b></p>
   </section>
 
   <h1 class="title">
@@ -561,7 +561,7 @@
     <button class="verbtn" id="btnBoard" type="button"
             aria-label="자유 플레이 전체 순위 보기">순위</button>
     <button class="verbtn" id="btnVer" type="button"
-            aria-label="현재 버전 v1.9.1, 업데이트 내역 보기">v1.9.1</button>
+            aria-label="현재 버전 v1.10.0, 업데이트 내역 보기">v1.10.0</button>
   </h1>
 
   <div class="hud">
@@ -709,14 +709,14 @@
   <div class="screen hide" id="screenLog">
     <h2>업데이트 내역</h2>
     <div class="loglist">
-      <h3>v1.9.1 <em>연출 다듬기</em></h3>
+      <h3>v1.10.0 <em>연출 다듬기</em></h3>
       <ul>
         <li><b>이펙트가 판 밖으로 날아가던 문제를 고쳤습니다.</b> EXIT 폭발 링이 버튼과
             하단 설명 위까지 퍼졌습니다</li>
         <li><b>연출·소리 버튼이 켜지면 시안색, 꺼지면 회색</b>으로 바뀝니다</li>
         <li>버전 표기를 <b>x.x.x</b> 형식으로 바꿨습니다</li>
       </ul>
-      <h3>v1.9.0 <em>반짝반짝 화끈화끈</em></h3>
+      <h3>v1.10.0 <em>반짝반짝 화끈화끈</em></h3>
       <ul>
         <li><b>버튼을 누르면 물결이 퍼집니다.</b> 눌림 반응과 광택도 붙었습니다</li>
         <li><b>점수·콤보가 오를 때 금빛으로 튑니다.</b> 시간이 10초 아래로 떨어지면 붉게 맥박칩니다</li>
@@ -964,7 +964,7 @@ const S = {
   phase:'idle',            // idle | ready | firing | fever | paused | over
   timeLimit:0, tEnd:0, raf:0, beamRaf:0, beamToken:0,
   pauseLeft:0, prevScreen:null,
-  feverEnd:0, feverHits:0,
+  feverEnd:0, feverHits:0, feverTaps:0, regained:0,
   feverRow:null, feverCol:null, feverCur:2, feverBusy:false, feverExit:'R',
   lastTickSec:-1,
   // ── 시드 / 리플레이 ──
@@ -1407,9 +1407,11 @@ function fire(r,c,d){
   // e = 이 판을 보며 쓴 시간(ms). 남은 풀은 그만큼 줄어듭니다.
   const left  = Math.max(0, S.tEnd - performance.now());
   const spent = Math.max(0, Math.round(S.timeLeft - left));
-  S.timeLeft  = left;
+  // 풀에서 깎는 값은 코어와 똑같아야 합니다 (MIN_SHOT_MS 하한).
+  // 검증기가 max(e, MIN_SHOT_MS) 로 깎으므로 여기서도 같게 맞춥니다.
+  S.timeLeft = Math.max(0, S.timeLeft - Math.max(spent, MC.MIN_SHOT_MS));
   S.log.push({k:'s', r, c, d, e:spent});
-  const remain = left/1000;
+  const remain = S.timeLeft/1000;
   // 판정은 코어가 합니다 — 서버가 같은 함수로 재현해야 하므로 여기서 규칙을 복제하지 않습니다
   const j = MC.judgeShot(S.grid, N, S.exits, r, c, d);
 
@@ -1740,7 +1742,7 @@ function resolve(j,remain){
     // 점수 계산은 코어가 담당합니다 (서버가 같은 식으로 재현해야 하므로)
     const g = MC.shotGain({base:j.base, maxScore:S.maxScore, remain, combo:S.combo});
     const perfect = g.perfect, gain = g.total;
-    const mult = 1 + S.combo*0.15;
+    const mult = MC.comboMult(S.combo);
     S.score += gain; S.rank += g.rank; S.combo++;
     const back = perfect ? addTime(MC.PERFECT_REGAIN) : 0;   // 최대치를 넘기지 않습니다
     perfect ? SFX.perfect() : SFX.clear();
@@ -1800,7 +1802,7 @@ function startFever(){
   stopBeam();
   $('svg').style.setProperty('--k','1');   // 피버 레인은 방 크기와 무관하게 항상 같은 굵기
   pauseClock();                     // 피버 동안 전체 시간은 줄지 않습니다
-  S.phase='fever'; S.feverHits=0; S.feverEnd=performance.now()+FEVER_MS;
+  S.phase='fever'; S.feverHits=0; S.feverTaps=0; S.feverEnd=performance.now()+FEVER_MS;
   S.emitter=null;
   $('board').classList.add('fevermode','feverflash');
   $('controls').classList.add('fevermode');
@@ -1884,6 +1886,7 @@ function drawFeverCursor(){
 /* 설치 = 발사. 방향은 고를 필요 없이 그 판의 EXIT 쪽으로 자동으로 나갑니다. */
 function feverShoot(col){
   if(S.phase!=='fever' || S.feverBusy) return;
+  if(S.feverTaps >= MC.FEVER_MAX_TAPS) return;      // 한 구간 타격 상한 (검증기와 동일)
   const row=S.feverRow, exit=S.feverExit;
   if(row[col]){
     SFX.miss();
@@ -1916,6 +1919,7 @@ function feverShoot(col){
 
   const finish = ()=>{
     if(S.phase!=='fever') return;          // 이미 피버가 끝났으면 이 발사는 무효 (로그도 남기지 않음)
+    S.feverTaps++;
     S.log.push({k:'f', c:col, e:shotAt});
     if(r.ok){
       const cells   = r.path.length;
@@ -1993,7 +1997,7 @@ function endFever(){
   SFX.feverEnd();
   // 라이프 회복 — 피버는 콤보 5연속을 쌓아야 열리므로, 그 자체가 회복 조건입니다
   showFlash('FEVER END',
-    `${S.feverHits}히트 · 콤보 x${(1+S.combo*0.15).toFixed(2)} · 시간 그대로`,
+    `${S.feverHits}히트 · 콤보 x${(MC.comboMult(S.combo)).toFixed(2)} · 시간 그대로`,
     'var(--gold)');
   say(`피버 종료. ${S.feverHits}회 적중. 남은 시간 ${(poolLeft()/1000).toFixed(1)}초. 총 ${S.score}점.`);
   setTimeout(()=>{ S.level++; SFX.levelup(); nextLevel(); }, 900);
@@ -2047,9 +2051,15 @@ function nextLevel(){
 function poolLeft(){ return S.raf ? Math.max(0, S.tEnd - performance.now()) : S.timeLeft; }
 function pauseClock(){ S.timeLeft = poolLeft(); stopTimer(); }
 function resumeClock(){ S.tEnd = performance.now() + S.timeLeft; stopTimer(); tick(); }
-function addTime(ms){                       // 회복 — 최대치를 넘기지 않습니다
+/* 회복 — 최대치(TIME_MAX)와 런 총량(REGAIN_CAP) 둘 다에 걸립니다.
+   총량 상한이 없으면 회복(2000ms) > 발사 최소비용(200ms) 이라 런이 무한해집니다.
+   검증기(core.replay)와 같은 규칙이어야 점수가 어긋나지 않습니다. */
+function addTime(ms){
+  const room = Math.max(0, MC.REGAIN_CAP - (S.regained||0));
+  const add  = Math.max(0, Math.min(ms, room));
+  S.regained = (S.regained||0) + add;
   const before = poolLeft();
-  const after  = Math.min(MC.TIME_MAX, before + ms);
+  const after  = Math.min(MC.TIME_MAX, before + add);
   S.timeLeft = after;
   if(S.raf) S.tEnd = performance.now() + after;
   return after - before;
@@ -2085,7 +2095,7 @@ function updateHUD(){
   }
   $('uiLevel').textContent = S.level;
   $('uiScore').textContent = S.score.toLocaleString();
-  $('uiCombo').textContent = 'x'+(1+S.combo*0.15).toFixed(2);
+  $('uiCombo').textContent = 'x'+(MC.comboMult(S.combo)).toFixed(2);
   const secs = poolLeft()/1000;
   $('uiLife').classList.toggle('low', secs <= 10 && S.phase!=='over');
   $('uiLife').textContent  = secs.toFixed(1);
@@ -2432,7 +2442,7 @@ async function startGame(mode){
   S.rng  = MC.makeRng(S.seed);
   S.log  = []; S.rank = 0; S.startedAt = Date.now();
   S.level=1; S.score=0; S.combo=0; S.cur={r:2,c:2};
-  S.timeLeft = MC.TIME_MAX; S.dir='N';
+  S.timeLeft = MC.TIME_MAX; S.dir='N'; S.regained = 0;
   document.body.classList.remove('homemode','panelopen');
   $('bdResult').classList.add('hide');
   $('screenPause').classList.add('hide');

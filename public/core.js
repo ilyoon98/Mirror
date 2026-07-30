@@ -10,7 +10,7 @@
 /* 로그 포맷 + 판 규칙 버전.
    규칙이 바뀌면 반드시 올립니다. 시드에도 들어가므로(dailySeed) 옛 규칙으로 등재된
    기록과 새 규칙의 판이 같은 순위표에서 섞이지 않습니다. */
-const PROTOCOL = 'mr6';
+const PROTOCOL = 'mr7';
 
 /* ---------------- 타일 종류 ----------------
    grid[r][c] 에 들어가는 값. null 은 빈 칸입니다. */
@@ -89,6 +89,33 @@ const FEVER_MS    = 6000;
 const TIME_MAX       = 60000;   // 시작 시간 풀 (ms)
 const PERFECT_REGAIN = 2000;    // PERFECT 한 발마다 회복 (상한 TIME_MAX)
 const MAX_LIFE       = 3;       // 남겨둔 상수 — v1.6 부터 게임 진행에는 쓰지 않습니다
+
+/* ---------------- 런 길이 상한 (v1.10) ----------------
+   v1.6 에서 판별 제한시간을 없애고 전역 풀로 바꾸면서, 풀을 깎는 값이
+   '클라이언트가 보고한 시간' 하나가 되어 버렸습니다.
+   그래서 모든 발사를 e=0 으로 보고하면 풀이 줄지 않아 런이 끝나지 않았습니다.
+   실측: 발사 72번의 보고 시간 합계 6ms 로 레벨 71·랭크 563,418 이 검증을 통과.
+   (정당한 최고 기록의 122배)
+
+   아래 세 상한이 그 구멍을 막습니다. 사람의 정상 플레이는 건드리지 않는 값입니다. */
+/* 한 발이 풀에서 최소로 소모하는 시간. 보고값이 이보다 작아도 이만큼 깎습니다.
+   200ms 로 두면 풀 예산(60초+회복 30초)이 450발을 감당해, 정직한 플레이(약 60발)의
+   7.5배까지 벌 수 있었습니다. 500ms 면 상한이 180발로 내려갑니다.
+   사람이 새 판을 읽고 두 번 누르는 데 0.5초 미만이 걸리는 일은 드물어,
+   정상 플레이(발당 약 1,500ms)에는 영향이 없습니다. */
+const MIN_SHOT_MS     = 500;
+const REGAIN_CAP      = 30000;  // 한 런에서 PERFECT 로 회복할 수 있는 총량.
+                                //   이게 없으면 회복(2000) > 최소비용(200) 이라 런이 무한해집니다.
+const FEVER_MAX_TAPS  = 25;     // 피버 한 구간의 최대 타격 수.
+                                //   시각만 0 으로 채우면 무한히 두드릴 수 있었습니다.
+
+/* 콤보 배수 상한.
+   배수가 무한히 오르면 점수가 '발사 수의 제곱'에 비례해, 런을 늘리는 모든 수단이
+   과도하게 보상됩니다. 실측: 발사 2.5배 차이가 점수 35배 차이가 됐습니다.
+   상한을 두면 점수가 발사 수에 거의 선형이 되어, 남은 오차가 그대로 오차로 남습니다.
+   또한 '오래 버티기' 보다 '잘 쏘기' 가 점수를 가르게 됩니다. */
+const COMBO_MULT_MAX = 4.0;                 // 콤보 20 에서 도달
+const comboMult = combo => Math.min(COMBO_MULT_MAX, 1 + combo*0.15);
 
 /* ---------------- 빔 시뮬레이션 ----------------
    trace() 는 한 발이 만들어내는 '모든 갈래'를 돌려줍니다.
@@ -539,7 +566,7 @@ function feverBest(row,exit){
 function shotGain({base, maxScore, remain, combo}){
   const perfect = base >= maxScore;
   const timeB   = Math.round(remain*2);
-  const m       = 1 + combo*0.15;
+  const m       = comboMult(combo);
   const rank    = Math.round(base*(perfect?2:1) * m);
   return { perfect, rank, total: Math.round((base*(perfect?2:1) + timeB) * m) };
 }
@@ -588,7 +615,7 @@ function judgeShot(grid, n, exits, r, c, d){
   };
 }
 function feverGain({cells, hits, optimal, combo}){
-  const g = Math.round((18 + cells*22 + hits*5) * (optimal?1.5:1) * (1 + combo*0.15));
+  const g = Math.round((18 + cells*22 + hits*5) * (optimal?1.5:1) * comboMult(combo));
   return { rank:g, total:g };                 // 피버는 시간 보너스가 없어 동일
 }
 
@@ -608,12 +635,13 @@ function replay(seed, events){
   let fever=null, feverHits=0, feverRound=null;
   let playMs=0;                       // 재생상 소요된 최소 시간(초 단위 검증용)
   let pool = TIME_MAX;                // 남은 전체 시간(ms). 0 이 되면 게임 오버
+  let regained=0, feverTaps=0;        // 회복 총량·피버 구간 타격 수 (런 길이 상한)
 
   const loadLevel = ()=>{
     n = boardSizeFor(level);
     lv = genLevel(rng, n, level);
   };
-  const enterFever = ()=>{ mode='fever'; feverHits=0; fever=0; feverRound=newFeverRound(rng); };
+  const enterFever = ()=>{ mode='fever'; feverHits=0; fever=0; feverTaps=0; feverRound=newFeverRound(rng); };
   const leaveFever = ()=>{
     // 피버는 시간을 깎지 않습니다(보상 자체가 '공짜 시간'). 라이프 회복은 없앴습니다.
     playMs += FEVER_MS;
@@ -633,6 +661,7 @@ function replay(seed, events){
       if(ev.k!=='f') return fail('피버 중 허용되지 않는 이벤트 '+ev.k+' @'+i);
       if(!(ev.e>=0 && ev.e<=FEVER_MS)) return fail('피버 시각 범위 밖 @'+i);
       if(ev.e < fever) return fail('피버 시각이 역행 @'+i);
+      if(++feverTaps > FEVER_MAX_TAPS) return fail('피버 타격이 한 구간 상한을 넘음 @'+i);
       fever = ev.e;
       const col = ev.c|0;
       if(col<0||col>4) return fail('피버 열 범위 밖 @'+i);
@@ -660,14 +689,19 @@ function replay(seed, events){
     // e = 이 판을 보며 쓴 시간(ms). 남은 시간보다 오래 걸렸다면 불가능한 발사입니다.
     if(!(ev.e>=0)) return fail('발사 시각이 음수 @'+i);
     if(ev.e > pool + 250) return fail('남은 시간보다 오래 걸린 발사 @'+i);
-    pool -= ev.e;
+    // 보고값이 0 이어도 최소 비용은 반드시 소모합니다 (클라이언트도 같은 값으로 깎습니다)
+    pool -= Math.max(ev.e, MIN_SHOT_MS);
     playMs += ev.e;
 
     const j = judgeShot(lv.grid, n, lv.exits, r, c, d);
     if(j.ok){
       const g = shotGain({base:j.base, maxScore:lv.maxScore, remain:Math.max(0,pool)/1000, combo});
       rank += g.rank; total += g.total; combo++;
-      if(g.perfect) pool = Math.min(TIME_MAX, pool + PERFECT_REGAIN);   // 회복은 최대치를 못 넘습니다
+      if(g.perfect){                                    // 회복은 최대치와 런 총량 둘 다에 걸립니다
+        const add = Math.max(0, Math.min(PERFECT_REGAIN, REGAIN_CAP - regained));
+        regained += add;
+        pool = Math.min(TIME_MAX, pool + add);
+      }
       if(combo % FEVER_EVERY === 0) enterFever();
       else { level++; loadLevel(); }
     }else{
@@ -722,7 +756,8 @@ function freeSeed(nowMs, rand){
 const isFreeSeed = s => typeof s==='string' && s.startsWith(PROTOCOL+'-f');
 
 const API = {
-  PROTOCOL, FEVER_EVERY, FEVER_MS, MAX_LIFE, TIME_MAX, PERFECT_REGAIN, DIRS, DKEYS, OPP, REFLECT, T,
+  PROTOCOL, FEVER_EVERY, FEVER_MS, MIN_SHOT_MS, REGAIN_CAP, FEVER_MAX_TAPS,
+  COMBO_MULT_MAX, comboMult, MAX_LIFE, TIME_MAX, PERFECT_REGAIN, DIRS, DKEYS, OPP, REFLECT, T,
   isMirror, isOneway, onewayPasses, onewayFace, flipGrid, applyFlip,
   hashSeed, makeRng, rndOf, pickOf,
   boardSizeFor, timeLimitFor, trace, simulate, countBounces, genLevel,
