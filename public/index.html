@@ -318,8 +318,6 @@
   .namebox .hintrow{text-align:left;line-height:1.5}
 
   /* 기록 비교 */
-  .sharescore{margin:0;font-size:.875rem;color:var(--dim)}
-  .sharescore b{color:var(--gold);font-size:1.5rem;font-variant-numeric:tabular-nums}
   .fld{font-size:.6875rem;color:var(--dim);letter-spacing:.05em;align-self:flex-start}
   .row{display:flex;gap:.4rem;width:100%;max-width:22rem}
   .inp{
@@ -337,12 +335,6 @@
     border:1px solid transparent;
   }
   .cmplist li.me{border-color:var(--cyan);background:rgba(61,240,255,.1)}
-  .fallback{width:100%;max-width:22rem;text-align:left;
-    border-top:1px solid var(--line);padding-top:.6rem;margin-top:.4rem}
-  .fallback summary{font-size:.75rem;color:var(--dim);cursor:pointer;letter-spacing:.04em}
-  .fallback summary:hover{color:var(--cyan)}
-  .fallback[open] summary{margin-bottom:.4rem}
-  .fallback > *:not(summary){margin-left:auto;margin-right:auto}
   .cmplist .rk{width:1.2rem;color:var(--dim);font-weight:700;text-align:right}
   .cmplist .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .cmplist .sc{color:var(--gold);font-weight:700;font-variant-numeric:tabular-nums}
@@ -680,27 +672,8 @@
 
       <ol class="cmplist" id="bdList" role="tabpanel" aria-live="polite"></ol>
       <p class="hintrow" id="bdState"></p>
+      <p class="hintrow" id="resSelf"></p>
 
-      <details class="fallback" id="bdOffline">
-        <summary>서버 없이 친구와 비교하기</summary>
-        <p class="hintrow">순위 서버가 연결되지 않았을 때 쓰는 방법입니다.
-          같은 판을 푼 사람끼리만 비교됩니다.</p>
-
-        <label class="fld" for="resCode">내 기록 코드</label>
-        <div class="row">
-          <input class="inp" id="resCode" readonly>
-          <button class="btn tiny" id="btnCopy" type="button">복사</button>
-        </div>
-        <p class="hintrow" id="resSelf"></p>
-
-        <label class="fld" for="cmpInput">친구 코드 붙여넣기</label>
-        <div class="row">
-          <input class="inp" id="cmpInput" placeholder="mr1|20260729|4820|17|…">
-          <button class="btn tiny" id="btnCmpAdd" type="button">추가</button>
-        </div>
-        <p class="hintrow" id="cmpMsg"></p>
-        <ol class="cmplist" id="cmpList"></ol>
-      </details>
 
       <div class="modes">
         <button class="btn" id="btnBoardRetry" type="button">RETRY</button>
@@ -1823,8 +1796,6 @@ function buildResult(){
   const okSelf = v.ok && v.rank === S.rank;
   S.verify = v;
 
-  const code = MC.shareCode({seed:S.seed, rank:S.rank, level:S.level, nick:getNick()});
-  $('resCode').value = code;
   $('resSelf').textContent = okSelf ? '자체 검증 통과' : `자체 검증 불일치 (${v.reason||v.rank})`;
   $('resSelf').className = 'hintrow' + (okSelf?'':' bad');
 
@@ -1837,7 +1808,6 @@ function buildResult(){
     const f = loadFree();
     if(!f || S.rank > f.rank) saveFree({rank:S.rank, level:S.level});
   }
-  renderCompare();
 }
 
 /* 플레이어 이름 — 이 기기에 저장해 매 판 같은 이름으로 등재됩니다.
@@ -1881,29 +1851,6 @@ function saveDaily(v){ try{ localStorage.setItem(DAILY_KEY, JSON.stringify(v)); 
 function loadFree(){ try{ return JSON.parse(localStorage.getItem(FREE_KEY)||'null'); }catch(e){ return null; } }
 function saveFree(v){ try{ localStorage.setItem(FREE_KEY, JSON.stringify(v)); }catch(e){} }
 
-/* 친구 코드 비교 — 같은 시드일 때만 의미가 있으므로 시드가 다르면 알려줍니다 */
-const compareList = [];
-function addCompare(code){
-  const p = MC.parseShareCode(code);
-  const out = $('cmpMsg');
-  if(!p){ out.textContent = '코드 형식이 올바르지 않습니다.'; out.className='hintrow bad'; return; }
-  if(p.seed !== S.seed){
-    out.textContent = `다른 판의 기록입니다 (${p.seed}). 같은 판끼리만 비교됩니다.`;
-    out.className='hintrow bad'; return;
-  }
-  if(!compareList.some(x=>x.nick===p.nick && x.rank===p.rank)) compareList.push(p);
-  out.textContent = ''; $('cmpInput').value='';
-  renderCompare();
-}
-function renderCompare(){
-  const me = {nick:getNick()+' (나)', rank:S.rank, level:S.level, me:true};
-  const rows = [me, ...compareList].sort((a,b)=>b.rank-a.rank);
-  $('cmpList').innerHTML = rows.map((r,i)=>
-    `<li${r.me?' class="me"':''}><span class="rk">${i+1}</span>`
-    + `<span class="nm">${escapeHtml(r.nick||'익명')}</span>`
-    + `<span class="sc">${r.rank.toLocaleString()}</span>`
-    + `<span class="lv">Lv${r.level}</span></li>`).join('');
-}
 const escapeHtml = s => String(s).replace(/[&<>"']/g, c =>
   ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
@@ -1994,7 +1941,7 @@ function syncBoardTabs(){
 
 async function loadBoard(){
   syncBoardTabs();
-  const list=$('bdList'), st=$('bdState'), off=$('bdOffline');
+  const list=$('bdList'), st=$('bdState');
 
   if(bdTab==='free'){
     $('bdSeed').textContent = bdDays
@@ -2101,7 +2048,6 @@ async function startGame(mode){
   $('screenLog').classList.add('hide');
   $('screenHelp').classList.add('hide');
   $('screenBoard').classList.add('hide');
-  compareList.length = 0;
   $('btnPause').setAttribute('aria-pressed','false');
   nextLevel();
   $('svg').focus();
@@ -2214,15 +2160,6 @@ $('range7d').onclick      = ()=>{ if(bdDays!==7){ bdDays=7; SFX.btn(); loadBoard
 $('btnShareClose').onclick= ()=>{
   $('screenBoard').classList.add('hide'); SFX.btn();
   ($('screenOver').classList.contains('hide') ? $('btnBoard') : $('btnRetry')).focus();
-};
-$('btnCmpAdd').onclick    = ()=> addCompare($('cmpInput').value);
-$('cmpInput').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); addCompare(e.target.value); } });
-$('btnCopy').onclick      = async ()=>{
-  const el=$('resCode');
-  try{ await navigator.clipboard.writeText(el.value); }
-  catch(e){ el.select(); try{ document.execCommand('copy'); }catch(e2){} }
-  $('btnCopy').textContent='복사됨'; SFX.btn();
-  setTimeout(()=>$('btnCopy').textContent='복사',1200);
 };
 $('btnRotL').onclick      = ()=> rotate(-1);
 $('btnRotR').onclick      = ()=> rotate(1);
