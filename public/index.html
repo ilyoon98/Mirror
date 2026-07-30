@@ -134,7 +134,7 @@
     max-width:min(29.375rem, max(14rem, calc(100vh - 26rem)));
     max-width:min(29.375rem, max(14rem, calc(100dvh - 26rem)));
   }
-  /* --k 는 방 크기에 따른 배율 (5×5=1, 6×6≈0.81, 7×7≈0.68) */
+  /* --k 는 방 크기에 따른 배율 (5×5=1, 6×6≈0.81) */
   svg{width:100%;height:100%;display:block;overflow:visible;touch-action:none;--k:1}
 
   .cellbg{fill:#11132a;stroke:var(--line);stroke-width:calc(1.5px * var(--k))}
@@ -456,7 +456,7 @@
       <button class="btn ghost tiny" id="btnHomeHelp" type="button">도움말</button>
     </div>
     <p class="hintrow homefoot">키보드: 방향키 이동 · Q/E 회전 · Space 발사
-      · <b>v1.7</b></p>
+      · <b>v1.8</b></p>
   </section>
 
   <h1 class="title">
@@ -465,7 +465,7 @@
     <button class="verbtn" id="btnBoard" type="button"
             aria-label="자유 플레이 전체 순위 보기">순위</button>
     <button class="verbtn" id="btnVer" type="button"
-            aria-label="현재 버전 v1.7, 업데이트 내역 보기">v1.7</button>
+            aria-label="현재 버전 v1.8, 업데이트 내역 보기">v1.8</button>
   </h1>
 
   <div class="hud">
@@ -609,6 +609,15 @@
   <div class="screen hide" id="screenLog">
     <h2>업데이트 내역</h2>
     <div class="loglist">
+      <h3>v1.8 <em>난이도 곡선 개편</em></h3>
+      <ul>
+        <li><b>7×7 방을 없앴습니다.</b> 훑는 비용만 늘리고 타일이 작아져 누르기 불편했습니다.
+            이제 <b>6×6까지</b>만 커집니다</li>
+        <li>대신 <b>거울이 더 빽빽하게</b> 놓입니다 (6×6에서 최대 19개 → <b>22개</b>)</li>
+        <li><b>후반에는 정답이 더 희귀해집니다.</b> 레벨이 오를수록 클리어되는 발사 수를
+            줄여, 찍어서 맞기 어렵게 했습니다 (거울 정답 5.8개 → 3.6개)</li>
+        <li>규칙이 바뀌어 <b>순위표를 새로 시작</b>했습니다</li>
+      </ul>
       <h3>v1.7 <em>화려한 피격 이펙트 · 기믹 조기 등장</em></h3>
       <ul>
         <li><b>거울에 닿을 때 이펙트가 확 화려해졌습니다.</b> 섬광 · 이중 링 ·
@@ -673,7 +682,7 @@
       </ul>
       <h3>v1.0 <em>방 확장 · 라이프 회복</em></h3>
       <ul>
-        <li>레벨 13부터 <b>6×6</b>, 25부터 <b>7×7</b>로 방이 넓어집니다</li>
+        <li>레벨 13부터 <b>6×6</b>으로 방이 넓어집니다</li>
         <li>피버를 성공하면 <b>라이프 +1</b> (최대 3)</li>
         <li>우측 상단에 버전·업데이트 내역 버튼 추가</li>
       </ul>
@@ -768,7 +777,7 @@
     <p class="hintrow">P 키로도 재개</p>
   </div>
 
-  <p class="footer">거울 <span style="color:var(--ink)">╱ ╲</span> 에서 90° 반사 · 같은 자리를 맴돌면 실패 · 레벨 13부터 방이 넓어집니다</p>
+  <p class="footer">거울 <span style="color:var(--ink)">╱ ╲</span> 에서 90° 반사 · 같은 자리를 맴돌면 실패 · 레벨 13부터 6×6으로 넓어집니다</p>
 </div>
 
 <script src="core.js"></script>

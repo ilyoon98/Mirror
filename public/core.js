@@ -10,7 +10,7 @@
 /* 로그 포맷 + 판 규칙 버전.
    규칙이 바뀌면 반드시 올립니다. 시드에도 들어가므로(dailySeed) 옛 규칙으로 등재된
    기록과 새 규칙의 판이 같은 순위표에서 섞이지 않습니다. */
-const PROTOCOL = 'mr5';
+const PROTOCOL = 'mr6';
 
 /* ---------------- 타일 종류 ----------------
    grid[r][c] 에 들어가는 값. null 은 빈 칸입니다. */
@@ -70,7 +70,11 @@ const REFLECT = {
   '/' : { N:'E', E:'N', S:'W', W:'S' },
   '\\': { N:'W', W:'N', S:'E', E:'S' }
 };
-const boardSizeFor = lv => lv<13 ? 5 : lv<25 ? 6 : 7;
+/* 방은 6×6 까지만 커집니다(v1.8).
+   7×7 은 훑는 비용만 늘렸습니다 — 60초를 런 전체가 공유하므로 큰 판은 시간을 더 먹고,
+   타일 배율이 0.68 까지 줄어 모바일 터치도 불편했습니다.
+   후반 난이도는 거울 밀도와 '정답 희소성' 이 이어받습니다. */
+const boardSizeFor = lv => lv<13 ? 5 : 6;
 const timeLimitFor = (n,lv) => Math.max(6 + (n-5)*1.5, (13 + (n-5)*3) - lv*0.4);
 
 const FEVER_EVERY = 5;
@@ -180,9 +184,17 @@ function exitLineHasMirror(grid, n, exitKey){
    출구 2개(×1 긴 쪽 / ×2 짧은 쪽). rng 호출 순서가 곧 시드 재현의 계약입니다. */
 function genLevel(rng, n, level){
   const total       = n*n;
-  const mirrorCount = Math.min(4 + Math.floor(level*0.7), Math.floor(total*0.55));
+  /* 거울 밀도 상한을 0.55 → 0.62 로 올렸습니다(v1.8).
+     5×5 구간(레벨 1~12)은 거울이 최대 12개라 이 상한에 닿지 않으므로 영향이 없고,
+     6×6 에서만 22개까지 늘어 후반 곡선이 이어집니다. */
+  const mirrorCount = Math.min(4 + Math.floor(level*0.7), Math.floor(total*0.62));
   const wantLen     = Math.min(5 + Math.floor(level/2), 14 + (n-5)*5);
   const wantBounce  = Math.min(1 + Math.floor(level/4), 6);
+
+  /* 정답 희소성 — 이 판을 클리어하는 발사가 몇 개까지 있어도 되는가.
+     밀도와 방 크기는 물리적 상한이 있지만 이 값은 없어서, 후반 난이도를 여기서 끌고 갑니다.
+     레벨이 오를수록 조여 "찍어서 맞는" 확률을 낮춥니다. */
+  const wantSol = Math.max(3, 6 - Math.floor(level/10));
   const RELAX_AT = 120, MAX_TRY = 420;
 
   for(let attempt=0; attempt<MAX_TRY; attempt++){
@@ -206,7 +218,7 @@ function genLevel(rng, n, level){
 
     const relax     = attempt > RELAX_AT;
     const minLen    = relax ? Math.max(4, Math.round(wantLen*0.6)) : wantLen;
-    const maxSol    = relax ? 12 : 6;
+    const maxSol    = relax ? wantSol + 6 : wantSol;
     const minBounce = relax ? 1  : wantBounce;
 
     const mainCands=[], subCands=[];
