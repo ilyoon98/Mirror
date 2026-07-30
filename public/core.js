@@ -612,6 +612,22 @@ function dailySeed(nowMs){
   return `${PROTOCOL}-${y}${String(m).padStart(2,'0')}${String(day).padStart(2,'0')}`;
 }
 
+/* ---------------- 자유 플레이 시드 ----------------
+   런마다 새 판이지만 순위표는 하나로 모입니다. 같은 생성기·같은 난이도 곡선을
+   레벨 1부터 순서대로 밟으므로, 판이 달라도 런 전체 점수는 비교가 성립합니다.
+
+   오늘의 판과 마찬가지로 규칙 버전을 앞에 붙입니다. 그래야 규칙이 바뀌었을 때
+   옛 기록이 새 순위표에 남지 않습니다.
+
+   rand 는 시드 생성에만 쓰는 난수입니다(판 진행에는 절대 쓰지 않습니다).
+   서버가 발급한 값을 클라이언트가 그대로 받아쓰는 것이 원칙이며,
+   이 함수는 서버와 오프라인 플레이가 같은 형식을 쓰도록 두었습니다. */
+function freeSeed(nowMs, rand){
+  const r = Math.floor((rand ? rand() : 0.5) * 0xFFFFFFFF).toString(36);
+  return `${PROTOCOL}-f${Number(nowMs).toString(36)}${r}`;
+}
+const isFreeSeed = s => typeof s==='string' && s.startsWith(PROTOCOL+'-f');
+
 const API = {
   PROTOCOL, FEVER_EVERY, FEVER_MS, MAX_LIFE, DIRS, DKEYS, OPP, REFLECT, T,
   isMirror, isOneway, onewayPasses, onewayFace, flipGrid, applyFlip,
@@ -620,7 +636,7 @@ const API = {
   judgeShot, shotScore, solveInfo, hazardPlan,
   genFeverRow, newFeverRound, feverSim, feverBest,
   shotGain, feverGain, replay,
-  shareCode, parseShareCode, dailySeed
+  shareCode, parseShareCode, dailySeed, freeSeed, isFreeSeed
 };
 
 if (typeof module === 'object' && module.exports) module.exports = API;

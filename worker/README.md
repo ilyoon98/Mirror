@@ -47,6 +47,16 @@ database_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 wrangler d1 execute mirror-rush --file=worker/schema.sql --remote
 ```
 
+### 이미 배포된 데이터베이스라면
+
+`schema.sql` 은 다시 실행할 수 없습니다(표가 이미 있습니다).
+`worker/migrations/` 의 변경만 순서대로 적용하세요. **v1.3 은 이 단계가 필수입니다** —
+`protocol`·`ip_hash` 열이 없으면 런 시작이 실패합니다.
+
+```bash
+wrangler d1 execute mirror-rush --file=worker/migrations/001-free-board.sql --remote
+```
+
 ## 3. 배포
 
 ```bash
@@ -91,6 +101,10 @@ curl https://mirror-rush.<계정이름>.workers.dev/api/health
 - 런 시작 시각을 **서버 시계**로 찍어, 보고된 시각의 합보다 실제 경과가 짧으면 거부합니다.
   "0초 만에 100레벨" 류를 막습니다.
 - 한 런은 한 번만 제출됩니다.
+- **시드는 서버가 발급합니다.** 자유 플레이가 순위표의 주력이 되면서,
+  클라이언트가 고른 시드를 인정하면 유리한 판만 골라 담을 수 있게 됩니다.
+  열려 있는 런이 있으면 **같은 런을 그대로 돌려주어**(10분) 재추첨 비용을 올립니다.
+  같은 IP 의 시간당 런 시작은 40회로 제한합니다.
 
 **검증하지 못합니다**
 - 사람이 직접 푼 것인지 자동 풀이기가 푼 것인지는 구분하지 못합니다.
@@ -104,14 +118,18 @@ curl https://mirror-rush.<계정이름>.workers.dev/api/health
 - 닉네임은 **서버가 생성**합니다(`날카로운반사-800` 형태). 자유 입력을 받지 않는 이유는
   부적절한 표현과 개인정보 관리 책임을 지지 않기 위해서입니다.
 - 순위표는 공개됩니다. 한번 올라간 기록은 지워도 캐시에 남을 수 있습니다.
+- **IP 는 평문으로 저장하지 않습니다.** 열린 런 재사용과 시간당 상한에만 쓰이며,
+  솔트를 섞은 해시 32자만 남깁니다. 솔트는 `IP_SALT` 로 지정할 수 있습니다.
 - `core.js`는 게임과 서버가 **같은 파일**을 씁니다. 규칙을 바꾸면 이미 등재된 기록과
   호환되지 않으므로, 규칙을 바꿀 때는 `core.js`의 `PROTOCOL`을 올리세요.
+  `protocol` 열이 자유 플레이 순위를 묶는 기준이라 규칙을 올리면 순위표도 새로 시작합니다.
 
 ## API
 
 | 메서드 | 경로 | 설명 |
 |---|---|---|
-| POST | `/api/run` | 런 시작. `{runId, seed, serverTime}` 반환 |
-| POST | `/api/submit` | `{runId, events}` 제출 → 서버가 재생·채점 후 `{rank, level, nick, position}` |
-| GET | `/api/board?seed=&limit=` | 시드별 상위 기록 |
+| POST | `/api/run` | 런 시작. `{mode:'free'\|'daily'}` → `{runId, seed, serverTime, resumed?}`. 열린 런이 있으면 `resumed:true` 로 같은 런을 반환 (429 = 시간당 상한) |
+| POST | `/api/submit` | `{runId, events}` 제출 → 서버가 재생·채점 후 `{rank, level, nick, position, mode}` |
+| GET | `/api/board?mode=free&days=&limit=` | **자유 플레이 전체 순위.** 같은 `protocol` 의 모든 런. `days` 생략 = 전체 기간 |
+| GET | `/api/board?mode=daily[&seed=]&limit=` | 오늘의 판 순위(시드별). `seed=` 만 주는 옛 호출도 daily 로 처리 |
 | GET | `/api/health` | 상태 확인 |

@@ -336,6 +336,27 @@
   .bestrow{font-size:.75rem;color:var(--gold);letter-spacing:.1em;font-weight:700}
   .bestrow.rec{color:var(--green)}
 
+  /* 순위표 탭 — 자유 플레이가 기본, 오늘의 판이 보조입니다 */
+  .tabs{display:flex;gap:.25rem;width:100%;max-width:22rem;
+    background:#0d0f20;border:1px solid var(--line);border-radius:.55rem;padding:.2rem}
+  .tab{
+    flex:1;min-height:2.75rem;padding:.45rem .3rem;border:0;border-radius:.4rem;
+    background:transparent;color:var(--dim);font-family:inherit;font-size:.8125rem;
+    font-weight:700;letter-spacing:.04em;cursor:pointer;
+  }
+  .tab:hover{color:var(--cyan)}
+  .tab[aria-selected="true"]{background:rgba(61,240,255,.16);color:var(--cyan)}
+  .tab:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+  .ranges{display:flex;gap:.35rem;justify-content:center;flex-wrap:wrap}
+  .range{
+    min-height:2.75rem;padding:.4rem .75rem;border-radius:99px;
+    border:1px solid var(--line);background:transparent;color:var(--dim);
+    font-family:inherit;font-size:.75rem;letter-spacing:.04em;cursor:pointer;
+  }
+  .range:hover{border-color:var(--cyan);color:var(--cyan)}
+  .range[aria-pressed="true"]{border-color:var(--cyan);color:var(--cyan);background:rgba(61,240,255,.12)}
+  .range:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+
   .shake{animation:shake .34s}
   @keyframes shake{
     0%,100%{transform:translateX(0)}20%{transform:translateX(-9px)}
@@ -378,9 +399,9 @@
     <b>MIRROR RUSH</b>
     <span class="sub">거울 방 레이저</span>
     <button class="verbtn" id="btnBoard" type="button"
-            aria-label="오늘의 판 전체 순위 보기">순위</button>
+            aria-label="자유 플레이 전체 순위 보기">순위</button>
     <button class="verbtn" id="btnVer" type="button"
-            aria-label="현재 버전 v1.1, 업데이트 내역 보기">v1.1</button>
+            aria-label="현재 버전 v1.3, 업데이트 내역 보기">v1.3</button>
   </h1>
 
   <div class="hud">
@@ -442,9 +463,10 @@
         콤보 5마다 <em>FEVER</em> — 1×5 레인 연사!
       </p>
       <div class="modes">
-        <button class="btn" id="btnStartDaily" type="button">오늘의 판</button>
-        <button class="btn ghost" id="btnStartFree" type="button">자유 플레이</button>
+        <button class="btn" id="btnStartFree" type="button">자유 플레이</button>
+        <button class="btn ghost" id="btnStartDaily" type="button">오늘의 판</button>
       </div>
+      <p class="hintrow" id="freeInfo"></p>
       <p class="hintrow" id="dailyInfo"></p>
       <p class="bestrow" id="startBest"></p>
       <p class="hintrow">키보드: 방향키 이동 · Q/E 회전 · Space 발사</p>
@@ -477,6 +499,22 @@
     <div class="screen hide" id="screenLog">
       <h2>업데이트 내역</h2>
       <div class="loglist">
+        <h3>v1.3 <em>자유 플레이 순위표</em></h3>
+        <ul>
+          <li><b>자유 플레이가 메인</b>이 되었습니다. 이제 자유 플레이도 <b>전체 순위에 등재</b>됩니다</li>
+          <li>순위표 기본 탭이 <b>자유 플레이</b>입니다. 판은 매번 달라도 레벨 1부터
+              같은 난이도 곡선을 밟으므로 런 전체 점수는 비교가 성립합니다</li>
+          <li><b>전체 / 최근 7일</b>로 기간을 골라 볼 수 있습니다</li>
+          <li>자유 플레이 시드를 <b>서버가 발급</b>합니다. 유리한 판을 골라 담는 것을 막기 위해
+              열려 있는 런은 같은 판을 그대로 돌려줍니다</li>
+          <li>오늘의 판은 <b>보조 탭</b>으로 그대로 남아 있습니다</li>
+        </ul>
+        <h3>v1.2 <em>소멸 타일 · FLIP</em></h3>
+        <ul>
+          <li><b>소멸 타일</b>이 빔을 흡수합니다. 두 출구의 최적 경로는 보호되므로 항상 클리어할 수 있습니다</li>
+          <li><b>FLIP</b> — 판마다 1회, 모든 거울이 <b>╱ ↔ ╲</b> 로 동시에 뒤집힙니다</li>
+          <li>규칙이 바뀌어 순위표를 새로 시작했습니다 (mr1 → mr2)</li>
+        </ul>
         <h3>v1.1 <em>오늘의 판 · 전체 순위</em></h3>
         <ul>
           <li><b>오늘의 판</b> — 매일 전 세계가 같은 문제를 풉니다. 그래야 점수 비교가 성립합니다</li>
@@ -549,10 +587,23 @@
     </div>
 
     <div class="screen hide" id="screenBoard">
-      <h2>오늘의 판 순위</h2>
+      <h2 id="bdTitle">전체 순위</h2>
+
+      <div class="tabs" role="tablist" aria-label="순위표 종류">
+        <button class="tab" id="tabFree" type="button" role="tab"
+                aria-selected="true" aria-controls="bdList">자유 플레이</button>
+        <button class="tab" id="tabDaily" type="button" role="tab"
+                aria-selected="false" aria-controls="bdList">오늘의 판</button>
+      </div>
+
+      <div class="ranges" id="bdRanges">
+        <button class="range" id="rangeAll" type="button" aria-pressed="true">전체</button>
+        <button class="range" id="range7d" type="button" aria-pressed="false">최근 7일</button>
+      </div>
+
       <p class="hintrow" id="bdSeed"></p>
 
-      <ol class="cmplist" id="bdList"></ol>
+      <ol class="cmplist" id="bdList" role="tabpanel" aria-live="polite"></ol>
       <p class="hintrow" id="bdState"></p>
 
       <details class="fallback" id="bdOffline">
@@ -648,6 +699,7 @@ const MUTE_KEY  = 'mirrorrush.mute';
 const FX_KEY    = 'mirrorrush.fx';
 const NICK_KEY  = 'mirrorrush.nick';
 const DAILY_KEY = 'mirrorrush.daily';   // {seed, rank, level}
+const FREE_KEY  = 'mirrorrush.free';    // {rank, level} — 자유 플레이 최고 랭킹 점수
 
 /* 코어 래퍼 — 호출부는 그대로 두고 시드 rng·현재 방 크기만 주입합니다 */
 const simulate  = (grid,r,c,d) => MC.simulate(grid, N, r, c, d);
@@ -670,7 +722,7 @@ const S = {
   feverRow:null, feverCol:null, feverCur:2, feverBusy:false, feverExit:'R',
   lastTickSec:-1,
   // ── 시드 / 리플레이 ──
-  seed:'', rng:null, mode:'daily', flipUsed:false,   // daily | free
+  seed:'', rng:null, mode:'free', flipUsed:false,    // free(메인) | daily
   log:[],                            // 검증용 이벤트 로그 (core.replay 가 그대로 읽습니다)
   rank:0,                            // 시간 보너스를 뺀 랭킹 점수
   runId:null, startedAt:0
@@ -1600,11 +1652,14 @@ function buildResult(){
   $('resSelf').textContent = okSelf ? '자체 검증 통과' : `자체 검증 불일치 (${v.reason||v.rank})`;
   $('resSelf').className = 'hintrow' + (okSelf?'':' bad');
 
-  // 오늘의 판 최고 기록 보관
+  // 최고 기록 보관 — 오늘의 판은 시드별, 자유 플레이는 통산
   if(S.mode==='daily'){
     const d = loadDaily();
     if(!d || d.seed!==S.seed || S.rank > d.rank)
       saveDaily({seed:S.seed, rank:S.rank, level:S.level});
+  }else{
+    const f = loadFree();
+    if(!f || S.rank > f.rank) saveFree({rank:S.rank, level:S.level});
   }
   renderCompare();
 }
@@ -1617,6 +1672,8 @@ function getNick(){
 }
 function loadDaily(){ try{ return JSON.parse(localStorage.getItem(DAILY_KEY)||'null'); }catch(e){ return null; } }
 function saveDaily(v){ try{ localStorage.setItem(DAILY_KEY, JSON.stringify(v)); }catch(e){} }
+function loadFree(){ try{ return JSON.parse(localStorage.getItem(FREE_KEY)||'null'); }catch(e){ return null; } }
+function saveFree(v){ try{ localStorage.setItem(FREE_KEY, JSON.stringify(v)); }catch(e){} }
 
 /* 친구 코드 비교 — 같은 시드일 때만 의미가 있으므로 시드가 다르면 알려줍니다 */
 const compareList = [];
@@ -1664,26 +1721,41 @@ const api = async (path, opt)=>{
   return data;
 };
 
-// 런 시작 — 서버가 시작 시각을 직접 찍습니다 (보고된 시각을 대조하는 기준)
-function apiStartRun(){
-  S.runId = null; S.myEntry = null;
-  if(!apiOn() || S.mode!=='daily') return;
-  api('/api/run', {method:'POST', body:JSON.stringify({mode:S.mode})})
-    .then(r=>{ if(r.seed===S.seed) S.runId = r.runId; })   // 시드가 다르면 등재하지 않습니다
-    .catch(()=>{});
+/* 런 시작 — 서버가 시작 시각을 직접 찍고 **시드까지 발급**합니다.
+
+   자유 플레이가 순위표의 주력이 되면서 시드를 클라이언트가 만들 수 없게 됐습니다.
+   스스로 고른 시드를 인정하면 유리한 판만 골라 담을 수 있기 때문입니다.
+   그래서 판을 그리기 전에 서버 응답을 기다립니다. */
+async function apiOpenRun(mode){
+  S.runId = null; S.myEntry = null; S.runError = null;
+  if(!apiOn()) return null;
+  try{
+    const r = await api('/api/run', {method:'POST', body:JSON.stringify({mode})});
+    S.runId = r.runId;
+    return r;                       // {runId, seed, serverTime, resumed}
+  }catch(err){
+    S.runError = err.message;       // 서버가 없어도 게임은 그대로 진행됩니다(등재만 빠짐)
+    return null;
+  }
 }
 
 // 게임 오버 시 자동 등재. 서버는 점수가 아니라 입력 로그를 받아 직접 채점합니다.
 async function apiSubmit(){
-  if(!apiOn() || S.mode!=='daily' || !S.runId) return null;
+  if(!apiOn()) return null;
+  if(!S.runId){
+    // 런을 열지 못한 채 플레이한 경우 — 순위 패널에 이유를 남깁니다
+    if(S.runError) S.myEntry = { error: S.runError };
+    return null;
+  }
   const runId = S.runId; S.runId = null;
+  const where = S.mode==='free' ? '자유 플레이 전체' : '오늘의 판';
   try{
     const r = await api('/api/submit', {method:'POST',
       body:JSON.stringify({runId, events:S.log})});
     S.myEntry = r;
     $('finalDetail').textContent =
-      `LEVEL ${S.level} 도달 · 랭킹 ${S.rank.toLocaleString()} · 전체 ${r.position}위`;
-    say(`전체 ${r.position}위로 등재됐습니다.`);
+      `LEVEL ${S.level} 도달 · 랭킹 ${S.rank.toLocaleString()} · ${where} ${r.position}위`;
+    say(`${where} ${r.position}위로 등재됐습니다.`);
     return r;
   }catch(err){
     S.myEntry = { error: err.message };
@@ -1691,19 +1763,42 @@ async function apiSubmit(){
   }
 }
 
-/* 순위 패널 — 전체 순위가 주인공입니다.
-   서버가 연결되지 않았을 때만 코드 비교(대비책)를 펼쳐서 보여줍니다. */
+/* 순위 패널 — 자유 플레이 전체 순위가 주인공입니다.
+   오늘의 판은 보조 탭으로 남기고, 서버가 없을 때만 코드 비교(대비책)를 펼칩니다. */
+let bdTab = 'free', bdDays = 0;        // days 0 = 전체 기간
+
 async function openBoard(){
   if(S.phase==='ready') togglePause();
   $('screenBoard').classList.remove('hide');
   $('btnShareClose').focus();
   SFX.btn();
+  bdTab = S.mode==='daily' ? 'daily' : 'free';   // 방금 플레이한 모드를 먼저 보여줍니다
+  loadBoard();
+}
 
-  const seed = (S.seed && S.mode==='daily') ? S.seed : MC.dailySeed(Date.now());
-  const y=seed.slice(0,4), m=seed.slice(4,6), d=seed.slice(6,8);
-  $('bdSeed').textContent = `${y}.${m}.${d} · 모두가 같은 문제를 풉니다`;
+function syncBoardTabs(){
+  $('tabFree').setAttribute('aria-selected', String(bdTab==='free'));
+  $('tabDaily').setAttribute('aria-selected', String(bdTab==='daily'));
+  $('bdRanges').style.display = bdTab==='free' ? '' : 'none';
+  $('rangeAll').setAttribute('aria-pressed', String(bdDays===0));
+  $('range7d').setAttribute('aria-pressed', String(bdDays===7));
+  $('bdTitle').textContent = bdTab==='free' ? '자유 플레이 전체 순위' : '오늘의 판 순위';
+}
 
+async function loadBoard(){
+  syncBoardTabs();
   const list=$('bdList'), st=$('bdState'), off=$('bdOffline');
+
+  if(bdTab==='free'){
+    $('bdSeed').textContent = bdDays
+      ? '최근 7일 · 런마다 새 판, 점수는 한 표에 모입니다'
+      : '전체 기간 · 런마다 새 판, 점수는 한 표에 모입니다';
+  }else{
+    const seed = MC.dailySeed(Date.now());
+    const p = seed.indexOf('-')+1, ymd = seed.slice(p);
+    $('bdSeed').textContent =
+      `${ymd.slice(0,4)}.${ymd.slice(4,6)}.${ymd.slice(6,8)} · 모두가 같은 문제를 풉니다`;
+  }
 
   if(!apiOn()){
     list.innerHTML = '';
@@ -1717,9 +1812,15 @@ async function openBoard(){
   off.open = false;
   st.className = 'hintrow';
   st.textContent = '불러오는 중…';
+  const path = bdTab==='free'
+    ? `/api/board?mode=free&limit=20${bdDays?'&days='+bdDays:''}`
+    : `/api/board?mode=daily&limit=20`;
   try{
-    const b = await api('/api/board?seed='+encodeURIComponent(seed)+'&limit=20');
-    const mine = S.myEntry && !S.myEntry.error ? S.myEntry : null;
+    const b = await api(path);
+    // 내 기록은 같은 탭을 보고 있을 때만 강조합니다(모드가 다르면 같은 표가 아닙니다)
+    const mine = (S.myEntry && !S.myEntry.error
+                  && (S.myEntry.mode||S.mode)===(bdTab==='free'?'free':'daily'))
+               ? S.myEntry : null;
     const rows = (b.entries||[]);
     list.innerHTML = rows.length ? rows.map((e,i)=>{
       const isMe = mine && e.nick===mine.nick && e.rank===mine.rank;
@@ -1728,7 +1829,7 @@ async function openBoard(){
         + `<span class="sc">${(e.rank||0).toLocaleString()}</span>`
         + `<span class="lv">Lv${e.level||0}</span></li>`;
     }).join('') : '<li><span class="nm">아직 기록이 없습니다. 첫 기록을 남겨보세요.</span></li>';
-    st.textContent = mine ? `내 기록 ${mine.rank.toLocaleString()}점 · 전체 ${mine.position}위 (${mine.nick})`
+    st.textContent = mine ? `내 기록 ${mine.rank.toLocaleString()}점 · ${mine.position}위 (${mine.nick})`
       : (S.myEntry && S.myEntry.error ? '등재 실패: '+S.myEntry.error : '');
     if(S.myEntry && S.myEntry.error) st.className='hintrow bad';
   }catch(err){
@@ -1741,24 +1842,48 @@ async function openBoard(){
 function refreshStartBest(){
   const b = loadBest();
   $('startBest').textContent = b ? `BEST ${b.toLocaleString()}` : '';
+
+  const f = loadFree();
+  $('freeInfo').textContent = f
+    ? `자유 플레이 최고 랭킹 ${f.rank.toLocaleString()}점 (Lv${f.level}) — 전체 순위 등재`
+    : '자유 플레이 — 매번 새 판, 전체 순위에 등재됩니다';
+
   const seed = MC.dailySeed(Date.now()), d = loadDaily();
-  const y=seed.slice(0,4), m=seed.slice(4,6), dd=seed.slice(6,8);
+  const p = seed.indexOf('-')+1, ymd = seed.slice(p);
+  const m = ymd.slice(4,6), dd = ymd.slice(6,8);
   $('dailyInfo').textContent = (d && d.seed===seed)
     ? `${m}/${dd} 오늘의 판 최고 ${d.rank.toLocaleString()}점 (Lv${d.level})`
     : `${m}/${dd} 오늘의 판 — 모두가 같은 문제를 풉니다`;
 }
 
-function startGame(mode){
+/* 시드를 서버에서 받아오는 동안 버튼을 잠급니다.
+   두 번 눌러 런이 두 개 열리면 하나는 미제출로 남습니다. */
+let starting = false;
+function setStartBusy(on){
+  ['btnStartFree','btnStartDaily','btnRetry'].forEach(id=>{
+    const b=$(id); if(b) b.disabled = on;
+  });
+  if(on){ $('freeInfo').textContent = '판을 받는 중…'; }
+}
+
+async function startGame(mode){
+  if(starting) return;
   if(S.phase==='ready'||S.phase==='firing'||S.phase==='fever') return;
   try{ ac().resume(); }catch(e){}
   if(mode) S.mode = mode;
-  // 오늘의 판은 전 세계가 같은 시드(UTC 날짜)를 씁니다. 자유 플레이는 매번 새 시드.
-  S.seed = S.mode==='daily'
-    ? MC.dailySeed(Date.now())
-    : 'f' + Date.now().toString(36) + Math.floor(Math.random()*1e6).toString(36);
+
+  /* 시드는 서버가 발급합니다. 오늘의 판은 UTC 날짜라 클라이언트도 같은 값을 알지만,
+     자유 플레이는 서버가 준 값을 그대로 써야 등재됩니다. */
+  starting = true; setStartBusy(true);
+  let run = null;
+  try{ run = await apiOpenRun(S.mode); }
+  finally{ starting = false; setStartBusy(false); refreshStartBest(); }
+
+  S.seed = run ? run.seed
+    : (S.mode==='daily' ? MC.dailySeed(Date.now())
+                        : MC.freeSeed(Date.now(), Math.random));   // 오프라인 — 등재 없음
   S.rng  = MC.makeRng(S.seed);
   S.log  = []; S.rank = 0; S.startedAt = Date.now();
-  apiStartRun();
   S.level=1; S.score=0; S.life=3; S.combo=0; S.cur={r:2,c:2};
   $('screenStart').classList.add('hide');
   $('screenOver').classList.add('hide');
@@ -1804,6 +1929,10 @@ $('btnStartFree').onclick = ()=>{ SFX.btn(); startGame('free'); };
 $('btnRetry').onclick     = ()=>{ SFX.btn(); startGame(); };
 $('btnOpenShare').onclick = ()=> openBoard();
 $('btnBoard').onclick     = ()=> openBoard();
+$('tabFree').onclick      = ()=>{ if(bdTab!=='free'){ bdTab='free'; SFX.btn(); loadBoard(); } };
+$('tabDaily').onclick     = ()=>{ if(bdTab!=='daily'){ bdTab='daily'; SFX.btn(); loadBoard(); } };
+$('rangeAll').onclick     = ()=>{ if(bdDays!==0){ bdDays=0; SFX.btn(); loadBoard(); } };
+$('range7d').onclick      = ()=>{ if(bdDays!==7){ bdDays=7; SFX.btn(); loadBoard(); } };
 $('btnShareClose').onclick= ()=>{
   $('screenBoard').classList.add('hide'); SFX.btn();
   ($('screenOver').classList.contains('hide') ? $('btnBoard') : $('btnRetry')).focus();
