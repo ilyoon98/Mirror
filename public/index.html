@@ -502,6 +502,24 @@
     0%{box-shadow:0 0 0 0 rgba(255,176,61,.75)}
     100%{box-shadow:0 0 0 34px rgba(255,176,61,0)}
   }
+  /* ── 피버 성공 연출 ── */
+  /* 빔이 지나간 타일이 뒤따라 켜집니다 */
+  .ftrail{fill:var(--fever);opacity:0;pointer-events:none}
+  @keyframes trailLit{0%{opacity:0}25%{opacity:.55}100%{opacity:0}}
+  /* 출구에서 터지는 링 */
+  .fring{fill:none;stroke:var(--fever);stroke-width:4}
+  .fring.opt{stroke:var(--green);stroke-width:5}
+  /* 사방으로 튀는 불티 */
+  .fspark{fill:var(--fever)}
+  .fspark.opt{fill:var(--green)}
+  /* 연쇄 횟수 — 레인 아래에 크게 */
+  .fchain{fill:var(--gold);font-size:30px;font-weight:900;letter-spacing:.06em;
+    paint-order:stroke;stroke:#05060e;stroke-width:6;stroke-linejoin:round}
+  .fchain.hot{fill:var(--green);font-size:36px}
+  /* 최적 적중 때 레인 전체가 한 번 번쩍 */
+  .flanewash{fill:var(--green);opacity:0;pointer-events:none}
+  @keyframes laneWash{0%{opacity:0}20%{opacity:.28}100%{opacity:0}}
+
   @keyframes sparkpop{
     0%{transform:scale(.2);opacity:1}
     100%{transform:scale(2.4);opacity:0}
@@ -552,7 +570,7 @@
       <button class="btn ghost tiny" id="btnHomeHelp" type="button">도움말</button>
     </div>
     <p class="hintrow homefoot">키보드: 방향키 이동 · Q/E 회전 · Space 발사
-      · <b>v1.11.0</b></p>
+      · <b>v1.12.0</b></p>
   </section>
 
   <h1 class="title">
@@ -561,7 +579,7 @@
     <button class="verbtn" id="btnBoard" type="button"
             aria-label="자유 플레이 전체 순위 보기">순위</button>
     <button class="verbtn" id="btnVer" type="button"
-            aria-label="현재 버전 v1.11.0, 업데이트 내역 보기">v1.11.0</button>
+            aria-label="현재 버전 v1.12.0, 업데이트 내역 보기">v1.12.0</button>
   </h1>
 
   <div class="hud">
@@ -709,14 +727,14 @@
   <div class="screen hide" id="screenLog">
     <h2>업데이트 내역</h2>
     <div class="loglist">
-      <h3>v1.11.0 <em>연출 다듬기</em></h3>
+      <h3>v1.12.0 <em>연출 다듬기</em></h3>
       <ul>
         <li><b>이펙트가 판 밖으로 날아가던 문제를 고쳤습니다.</b> EXIT 폭발 링이 버튼과
             하단 설명 위까지 퍼졌습니다</li>
         <li><b>연출·소리 버튼이 켜지면 시안색, 꺼지면 회색</b>으로 바뀝니다</li>
         <li>버전 표기를 <b>x.x.x</b> 형식으로 바꿨습니다</li>
       </ul>
-      <h3>v1.11.0 <em>반짝반짝 화끈화끈</em></h3>
+      <h3>v1.12.0 <em>반짝반짝 화끈화끈</em></h3>
       <ul>
         <li><b>버튼을 누르면 물결이 퍼집니다.</b> 눌림 반응과 광택도 붙었습니다</li>
         <li><b>점수·콤보가 오를 때 금빛으로 튑니다.</b> 시간이 10초 아래로 떨어지면 붉게 맥박칩니다</li>
@@ -1930,6 +1948,8 @@ function feverShoot(col){
       S.score += gain; S.rank += g.rank;
       SFX.feverHit(S.feverHits);
       if(optimal) SFX.perfect();
+      if(S.feverHits>=3) SFX.prism();                  // 연쇄가 붙으면 소리도 한 겹 더
+      feverCelebrate(col, r, exit, optimal, S.feverHits);
       feverPop(col, (optimal?'최적 ':'')+'+'+gain, optimal?'opt':'');
       updateHUD();
       say(`${optimal?'최적 위치. ':''}${cells}칸 통과, ${gain}점.`);
@@ -1973,6 +1993,68 @@ function feverPop(col, text, cls){
     requestAnimationFrame(()=>{ g.style.transform='translateY(-26px)'; g.style.opacity='0'; });
   }
   setTimeout(()=>g.remove(), 560);
+}
+
+/* ---------- 피버 성공 연출 ----------
+   맞힐수록 세지도록 연쇄 수(hits)에 따라 강도를 올립니다.
+   연출이 꺼져 있으면(fxOn=false) 전부 건너뜁니다 — 게임 결과에는 영향이 없습니다. */
+function feverCelebrate(col, res, exit, optimal, hits){
+  if(!fxOn) return;
+  const cls  = optimal ? ' opt' : '';
+  const kick = Math.min(hits, 6);                 // 연쇄가 쌓일수록 커집니다
+  const life = [];
+  const add  = (el, ms)=>{ gFx.appendChild(el); life.push([el, ms]); };
+
+  // ① 빔이 지나간 타일이 뒤따라 켜집니다
+  res.path.forEach((c, i)=>{
+    const t = mk('rect',{x:ftx(c), y:FROWY, width:FTW, height:FTH, rx:12, class:'ftrail'});
+    t.style.animation = `trailLit .42s ease-out ${i*0.045}s forwards`;
+    add(t, 600 + i*45);
+  });
+
+  // ② 빠져나간 출구에서 링이 터집니다
+  const ex = exit==='R' ? ftx(4)+FTW+16 : ftx(0)-16;
+  for(let i=0;i<2+Math.floor(kick/2);i++){
+    const c = mk('circle',{cx:ex, cy:FCY, r:14+i*9, class:'fring'+cls});
+    c.style.transformOrigin = `${ex}px ${FCY}px`;
+    c.style.animation = `ringpop ${(.5+i*0.08).toFixed(2)}s ease-out ${i*0.07}s forwards`;
+    add(c, 900 + i*120);
+  }
+
+  // ③ 출구에서 불티가 사방으로 튑니다
+  const n = 6 + kick*2;
+  for(let i=0;i<n;i++){
+    const a = (Math.PI*2*i)/n + (optimal?0.3:0);
+    const R = 26 + kick*5;
+    const s = mk('circle',{cx:ex, cy:FCY, r:3.5+(optimal?1:0), class:'fspark'+cls});
+    s.style.transition = 'transform .5s ease-out, opacity .5s ease-out';
+    add(s, 560);
+    requestAnimationFrame(()=>{
+      s.style.transform = `translate(${(Math.cos(a)*R).toFixed(1)}px,${(Math.sin(a)*R).toFixed(1)}px)`;
+      s.style.opacity = '0';
+    });
+  }
+
+  // ④ 최적이면 레인 전체가 한 번 번쩍
+  if(optimal){
+    const w = mk('rect',{x:ftx(0)-8, y:FROWY-8,
+      width:(ftx(4)+FTW+8)-(ftx(0)-8), height:FTH+16, rx:16, class:'flanewash'});
+    w.style.animation = 'laneWash .5s ease-out forwards';
+    add(w, 560);
+  }
+
+  // ⑤ 2연속부터 연쇄 수를 레인 아래에 크게
+  if(hits >= 2){
+    const t = mk('text',{x:226, y:FROWY+FTH+42,
+      class:'fchain'+(hits>=5?' hot':''), 'text-anchor':'middle'});
+    t.textContent = `${hits} CHAIN`;
+    t.style.transformOrigin = '226px '+(FROWY+FTH+42)+'px';
+    t.style.animation = 'pop .45s cubic-bezier(.2,1.5,.4,1) forwards';
+    add(t, 700);
+    setTimeout(()=>{ t.style.transition='opacity .25s'; t.style.opacity='0'; }, 420);
+  }
+
+  for(const [el, ms] of life) setTimeout(()=>el.remove(), ms);
 }
 
 function spark(x,y,gain){
