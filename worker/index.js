@@ -244,13 +244,24 @@ async function handleBoard(env, url){
   if(mode==='free'){
     const days  = Math.min(365, Math.max(0, +(q.get('days')||0)));
     const since = days ? Date.now() - days*24*60*60*1000 : 0;
+    /* 지난 시즌 조회 — 규칙이 바뀌면 순위표를 새로 시작하지만 기록은 지우지 않습니다.
+       protocol 을 주면 그 시즌 표를 봅니다(읽기만, 규칙과 무관). */
+    const proto = /^mr[0-9]{1,3}$/.test(q.get('protocol')||'') ? q.get('protocol') : Core.PROTOCOL;
     const { results } = await env.DB.prepare(
       `SELECT nick, rank_score AS rank, level, submitted_at
          FROM runs
         WHERE mode='free' AND protocol=? AND status='done' AND submitted_at > ?
         ORDER BY rank_score DESC, submitted_at ASC LIMIT ?`
-    ).bind(Core.PROTOCOL, since, limit).all();
-    return { mode:'free', protocol:Core.PROTOCOL, days, entries: results||[] };
+    ).bind(proto, since, limit).all();
+    // 어떤 시즌이 존재하는지 함께 알려줍니다 (클라이언트가 선택 UI 를 그립니다)
+    const { results: seasons } = await env.DB.prepare(
+      `SELECT protocol, COUNT(*) AS runs, MAX(rank_score) AS best
+         FROM runs
+        WHERE mode='free' AND status='done' AND protocol IS NOT NULL
+        GROUP BY protocol`
+    ).all();
+    return { mode:'free', protocol:proto, current:Core.PROTOCOL, days,
+             entries: results||[], seasons: seasons||[] };
   }
 
   const seed = q.get('seed') || Core.dailySeed(Date.now());

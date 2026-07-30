@@ -285,6 +285,8 @@
   #screenPause{z-index:70}
   .screen.hide{display:none}
   #bdResult.hide{display:none}
+  #bdSeasons.hide{display:none}
+  #bdSeasons .range.cur{border-color:var(--gold);color:var(--gold)}
   #screenBoard:not(.resultmode) #btnBoardRetry{display:none}
   /* 이름 입력은 등재하는 자리에서만 — 홈에서 순위표를 구경할 때는 감춥니다 */
   #screenBoard:not(.resultmode) .namebox{display:none}
@@ -746,6 +748,7 @@
       <button class="range" id="rangeAll" type="button" aria-pressed="true">전체</button>
       <button class="range" id="range7d" type="button" aria-pressed="false">최근 7일</button>
     </div>
+    <div class="ranges hide" id="bdSeasons" role="group" aria-label="시즌 선택"></div>
 
     <p class="hintrow" id="bdSeed"></p>
 
@@ -2050,13 +2053,14 @@ async function apiSubmit(){
 /* 순위 패널 — 자유 플레이 전체 순위가 주인공입니다.
    오늘의 판은 보조 탭으로 남기고, 서버가 없을 때만 코드 비교(대비책)를 펼칩니다. */
 let bdTab = 'free', bdDays = 0;        // days 0 = 전체 기간
+let bdProto = null;                    // null = 현재 시즌. 지난 시즌을 보면 'mr5' 같은 값
 
 async function openBoard(){
   panelOn();
   if(S.phase!=='over'){                       // 홈이나 게임 중에 열면 결과·RETRY 를 감춥니다
     $('bdResult').classList.add('hide');
     $('screenBoard').classList.remove('resultmode');
-  }
+  } else bdProto = null;                      // 결과 화면은 항상 현재 시즌
   $('screenBoard').classList.remove('hide');
   /* 결과 화면에서는 이름칸(비었으면) → RETRY 로, 그냥 구경할 때는 닫기로 포커스를 보냅니다.
      숨겨진 이름칸에 포커스를 주면 아무 데도 안 가므로 모드로 갈라야 합니다. */
@@ -2069,10 +2073,43 @@ async function openBoard(){
   loadBoard();
 }
 
+/* 시즌 선택 — 규칙이 바뀌면 순위표를 새로 시작하지만 기록은 남습니다.
+   시즌이 둘 이상일 때만 보여 주고, 결과 화면에서는 현재 시즌으로 고정합니다. */
+function renderSeasons(list, current){
+  const box = $('bdSeasons');
+  const resultMode = $('screenBoard').classList.contains('resultmode');
+  const seasons = (list||[]).slice()
+    .sort((a,b)=> (+String(a.protocol).slice(2)) - (+String(b.protocol).slice(2)));
+  if(resultMode || bdTab!=='free' || seasons.length<2){
+    box.classList.add('hide'); box.innerHTML=''; return;
+  }
+  const shown = bdProto || current;
+  box.innerHTML = seasons.map(x=>{
+    const n = String(x.protocol).slice(2);
+    const cur = x.protocol===current;
+    const on  = x.protocol===shown;
+    return '<button class="range'+(cur?' cur':'')+'" type="button"'
+      + ' data-proto="'+escapeHtml(x.protocol)+'"'
+      + ' aria-pressed="'+(on?'true':'false')+'">'
+      + '시즌 ' + escapeHtml(n) + (cur?' (현재)':'')
+      + ' <span style="opacity:.6">'+x.runs+'</span></button>';
+  }).join('');
+  box.classList.remove('hide');
+  box.querySelectorAll('button').forEach(b=>{
+    b.onclick = ()=>{
+      const p = b.dataset.proto;
+      bdProto = (p===current) ? null : p;
+      SFX.btn(); loadBoard();
+    };
+  });
+}
+
 function syncBoardTabs(){
   $('tabFree').setAttribute('aria-selected', String(bdTab==='free'));
   $('tabDaily').setAttribute('aria-selected', String(bdTab==='daily'));
   $('bdRanges').style.display = bdTab==='free' ? '' : 'none';
+  if(bdTab!=='free' || $('screenBoard').classList.contains('resultmode'))
+    $('bdSeasons').classList.add('hide');
   $('rangeAll').setAttribute('aria-pressed', String(bdDays===0));
   $('range7d').setAttribute('aria-pressed', String(bdDays===7));
   $('bdTitle').textContent = bdTab==='free' ? '자유 플레이 전체 순위' : '오늘의 판 순위';
@@ -2083,9 +2120,10 @@ async function loadBoard(){
   const list=$('bdList'), st=$('bdState');
 
   if(bdTab==='free'){
-    $('bdSeed').textContent = bdDays
+    const past = bdProto ? '지난 시즌 ' + bdProto.slice(2) + ' · ' : '';
+    $('bdSeed').textContent = past + (bdDays
       ? '최근 7일 · 런마다 새 판, 점수는 한 표에 모입니다'
-      : '전체 기간 · 런마다 새 판, 점수는 한 표에 모입니다';
+      : '전체 기간 · 런마다 새 판, 점수는 한 표에 모입니다');
   }else{
     const seed = MC.dailySeed(Date.now());
     const p = seed.indexOf('-')+1, ymd = seed.slice(p);
@@ -2105,9 +2143,11 @@ async function loadBoard(){
   st.textContent = '불러오는 중…';
   const path = bdTab==='free'
     ? `/api/board?mode=free&limit=20${bdDays?'&days='+bdDays:''}`
+      + (bdProto ? '&protocol='+encodeURIComponent(bdProto) : '')
     : `/api/board?mode=daily&limit=20`;
   try{
     const b = await api(path);
+    if(bdTab==='free') renderSeasons(b.seasons, b.current || b.protocol);
     // 내 기록은 같은 탭을 보고 있을 때만 강조합니다(모드가 다르면 같은 표가 아닙니다)
     const mine = (S.myEntry && !S.myEntry.error
                   && (S.myEntry.mode||S.mode)===(bdTab==='free'?'free':'daily'))
@@ -2316,7 +2356,7 @@ $('btnTutPrev').onclick   = ()=> tutGo(-1);
 $('btnTutNext').onclick   = ()=> tutGo(1);
 $('btnBoardRetry').onclick= ()=>{ $('screenBoard').classList.add('hide'); SFX.btn(); startGame(); };
 $('btnBoardHome').onclick = ()=> goHome();
-$('tabFree').onclick      = ()=>{ if(bdTab!=='free'){ bdTab='free'; SFX.btn(); loadBoard(); } };
+$('tabFree').onclick      = ()=>{ if(bdTab!=='free'){ bdTab='free'; bdProto=null; SFX.btn(); loadBoard(); } };
 $('tabDaily').onclick     = ()=>{ if(bdTab!=='daily'){ bdTab='daily'; SFX.btn(); loadBoard(); } };
 $('rangeAll').onclick     = ()=>{ if(bdDays!==0){ bdDays=0; SFX.btn(); loadBoard(); } };
 $('range7d').onclick      = ()=>{ if(bdDays!==7){ bdDays=7; SFX.btn(); loadBoard(); } };
