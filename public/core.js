@@ -38,6 +38,65 @@ function flipGrid(grid){
     t===T.ONEWAY_B ? T.ONEWAY_A : t));
 }
 
+/* ---------------- 순위표 이름 ----------------
+   게임 규칙이 아니라 '공개 순위표에 무엇이 뜨는가' 의 문제입니다.
+   여기에 두는 이유는 클라이언트와 서버가 **같은 판정**을 써야 하기 때문입니다.
+   최종 판정은 서버가 하고(클라이언트 우회 불가), 클라이언트는 입력 즉시 알려 주는 용도입니다.
+
+   한계는 분명히 해 둡니다 — 목록 방식이라
+     · 여기 없는 표현은 통과합니다
+     · 정상적인 이름이 우연히 걸릴 수 있습니다 (부분 일치 문제)
+   그래서 걸리면 오류로 막지 않고 **서버가 대신 이름을 지어 줍니다.**            */
+const NAME_MAX = 12;
+
+/* 눈속임(ㅅ.ㅂ, f u c k, fffuuuck …)을 걷어내기 위해 비교 전에 정규화합니다.
+   반복 축약은 두 가지로 만들어 둘 다 검사합니다.
+     loose  — 3연속 이상만 2개로 (원래 형태에 가깝게)
+     tight  — 반복을 전부 1개로 (fffuuuck → fuck)
+   tight 만 쓰면 '아아' 같은 정상 이름이 뭉개지므로 둘 다 봅니다. */
+function normName(s){
+  const base = String(s)
+    .toLowerCase()
+    .replace(/[\s._\-*+~!@#$%^&()[\]{}<>?/\\|'"`,;:=0-9]/g, '');   // 구분자·숫자 제거
+  return {
+    loose: base.replace(/(.)\1{2,}/g, '$1$1'),
+    tight: base.replace(/(.)\1+/g, '$1')
+  };
+}
+
+/* 공개 순위표에 뜨면 곤란한 표현. 한글은 자모 축약형까지 함께 넣습니다.
+   운영하면서 필요한 만큼 추가하세요. */
+const NAME_BANNED = [
+  // 한국어 욕설·비속어
+  '씨발','시발','씨빨','시팔','씹','ㅅㅂ','ㅆㅂ','병신','ㅂㅅ','새끼','ㅅㄲ','좆','존나','ㅈㄴ',
+  '지랄','ㅈㄹ','미친놈','미친년','개새','개년','걸레','창녀','보지','자지','섹스','야동','강간',
+  '느금','니애미','애미','애비','호로','썅','쌍놈','등신','머저리','찌질','틀딱','급식충','한남',
+  '김치녀','일베','좌빨','수구꼴통','전라디언','홍어','짱깨','쪽바리','깜둥이',
+  // 영어
+  'fuck','fck','shit','bitch','bastard','asshole','dick','cock','pussy','cunt','slut','whore',
+  'nigger','nigga','faggot','retard','rape','nazi','hitler',
+  // 사칭·혼동
+  'admin','administrator','moderator','운영자','관리자','시스템','system'
+];
+
+/* 이름 판정. 반환값이 null 이면 '쓸 수 없는 이름' 입니다. */
+function cleanName(v){
+  if(typeof v !== 'string') return null;
+  let s = [...v].filter(ch=>{                       // 제어문자·폭 없는 문자 제거
+    const cp = ch.codePointAt(0);
+    return !(cp < 0x20 || cp === 0x7f || (cp >= 0x200b && cp <= 0x200f)
+             || cp === 0x2028 || cp === 0x2029);
+  }).join('');
+  s = s.replace(/\s+/g, ' ').trim();
+  if(!s) return null;
+  if(/https?:\/\//i.test(s) || /\bwww\./i.test(s)) return null;   // 링크는 받지 않습니다
+  s = [...s].slice(0, NAME_MAX).join('');                          // 이모지를 쪼개지 않도록
+  const n = normName(s);
+  if(!n.loose) return null;                                        // 기호만 남는 이름
+  if(NAME_BANNED.some(w => n.loose.includes(w) || n.tight.includes(w))) return null;
+  return s;
+}
+
 /* ---------------- 시드 PRNG (mulberry32) ---------------- */
 function hashSeed(str){
   let h = 2166136261 >>> 0;                       // FNV-1a
@@ -757,7 +816,7 @@ const isFreeSeed = s => typeof s==='string' && s.startsWith(PROTOCOL+'-f');
 
 const API = {
   PROTOCOL, FEVER_EVERY, FEVER_MS, MIN_SHOT_MS, REGAIN_CAP, FEVER_MAX_TAPS,
-  COMBO_MULT_MAX, comboMult, MAX_LIFE, TIME_MAX, PERFECT_REGAIN, DIRS, DKEYS, OPP, REFLECT, T,
+  COMBO_MULT_MAX, comboMult, NAME_MAX, NAME_BANNED, normName, cleanName, MAX_LIFE, TIME_MAX, PERFECT_REGAIN, DIRS, DKEYS, OPP, REFLECT, T,
   isMirror, isOneway, onewayPasses, onewayFace, flipGrid, applyFlip,
   hashSeed, makeRng, rndOf, pickOf,
   boardSizeFor, timeLimitFor, trace, simulate, countBounces, genLevel,

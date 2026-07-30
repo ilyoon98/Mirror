@@ -552,7 +552,7 @@
       <button class="btn ghost tiny" id="btnHomeHelp" type="button">도움말</button>
     </div>
     <p class="hintrow homefoot">키보드: 방향키 이동 · Q/E 회전 · Space 발사
-      · <b>v1.10.0</b></p>
+      · <b>v1.11.0</b></p>
   </section>
 
   <h1 class="title">
@@ -561,7 +561,7 @@
     <button class="verbtn" id="btnBoard" type="button"
             aria-label="자유 플레이 전체 순위 보기">순위</button>
     <button class="verbtn" id="btnVer" type="button"
-            aria-label="현재 버전 v1.10.0, 업데이트 내역 보기">v1.10.0</button>
+            aria-label="현재 버전 v1.11.0, 업데이트 내역 보기">v1.11.0</button>
   </h1>
 
   <div class="hud">
@@ -709,14 +709,14 @@
   <div class="screen hide" id="screenLog">
     <h2>업데이트 내역</h2>
     <div class="loglist">
-      <h3>v1.10.0 <em>연출 다듬기</em></h3>
+      <h3>v1.11.0 <em>연출 다듬기</em></h3>
       <ul>
         <li><b>이펙트가 판 밖으로 날아가던 문제를 고쳤습니다.</b> EXIT 폭발 링이 버튼과
             하단 설명 위까지 퍼졌습니다</li>
         <li><b>연출·소리 버튼이 켜지면 시안색, 꺼지면 회색</b>으로 바뀝니다</li>
         <li>버전 표기를 <b>x.x.x</b> 형식으로 바꿨습니다</li>
       </ul>
-      <h3>v1.10.0 <em>반짝반짝 화끈화끈</em></h3>
+      <h3>v1.11.0 <em>반짝반짝 화끈화끈</em></h3>
       <ul>
         <li><b>버튼을 누르면 물결이 퍼집니다.</b> 눌림 반응과 광택도 붙었습니다</li>
         <li><b>점수·콤보가 오를 때 금빛으로 튑니다.</b> 시간이 10초 아래로 떨어지면 붉게 맥박칩니다</li>
@@ -2163,24 +2163,11 @@ function buildResult(){
 
 /* 플레이어 이름 — 이 기기에 저장해 매 판 같은 이름으로 등재됩니다.
    서버 규칙과 같게 12자로 자르고 제어문자·링크를 막습니다(최종 판정은 서버가 합니다). */
-const NAME_MAX = 12;
-/* 제어문자·폭 없는 문자 제거.
-   정규식 문자 클래스에 넣으면 소스에 리터럴 제어문자가 박혀 파싱이 깨지므로
-   코드포인트로 걸러냅니다. 서버의 stripCtl 과 같은 규칙이어야 합니다. */
-function stripCtl(s){
-  return [...String(s)].filter(ch=>{
-    const cp = ch.codePointAt(0);
-    return !(cp < 0x20 || cp === 0x7f || (cp >= 0x200b && cp <= 0x200f)
-             || cp === 0x2028 || cp === 0x2029);
-  }).join('');
-}
-function cleanName(v){
-  if(typeof v !== 'string') return '';
-  let s = stripCtl(v)
-           .replace(/\s+/g,' ').trim();
-  if(/https?:\/\//i.test(s)) return '';
-  return [...s].slice(0, NAME_MAX).join('');
-}
+/* 판정은 core.js 를 그대로 씁니다 — 서버와 **같은 함수**여야
+   "여기선 됐는데 서버에서 거부" 가 생기지 않습니다. 최종 판정은 서버입니다.
+   코어는 못 쓰는 이름에 null 을 주지만, 여기 호출부는 빈 문자열을 기대하므로 맞춰 줍니다. */
+const NAME_MAX  = MC.NAME_MAX;
+const cleanName = v => MC.cleanName(v) || '';
 function loadName(){
   try{ return cleanName(localStorage.getItem(NICK_KEY) || ''); }catch(e){ return ''; }
 }

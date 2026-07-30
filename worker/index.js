@@ -45,27 +45,10 @@ function makeNick(rand){
   return `${a}${n}-${Math.floor(rand()*900+100)}`;
 }
 
-const NAME_MAX = 12;
-/* 제어문자·폭 없는 문자 제거.
-   정규식 문자 클래스에 넣으면 소스에 리터럴 제어문자가 박혀 파싱이 깨지므로
-   코드포인트로 걸러냅니다. 클라이언트의 stripCtl 과 같은 규칙이어야 합니다.
-   최종 판정은 여기(서버)가 합니다 — 클라이언트 정리는 편의일 뿐입니다. */
-function stripCtl(s){
-  return [...String(s)].filter(ch=>{
-    const cp = ch.codePointAt(0);
-    return !(cp < 0x20 || cp === 0x7f || (cp >= 0x200b && cp <= 0x200f)
-             || cp === 0x2028 || cp === 0x2029);
-  }).join('');
-}
-function cleanName(v){
-  if(typeof v !== 'string') return null;
-  let s = stripCtl(v)
-           .replace(/\s+/g, ' ')
-           .trim();
-  if(/https?:\/\//i.test(s)) return null;                  // 링크는 받지 않습니다
-  s = [...s].slice(0, NAME_MAX).join('');                   // 이모지를 쪼개지 않도록 코드포인트 단위
-  return s.length ? s : null;
-}
+/* 이름 판정은 core.js 한 곳에만 있습니다.
+   클라이언트가 같은 함수로 미리 알려 주고, **최종 판정은 여기(서버)** 입니다.
+   금지어를 늘리려면 core.js 의 NAME_BANNED 를 고치세요. */
+const cleanName = Core.cleanName;
 
 /* 기기 식별자 — 브라우저가 만들어 보관하는 임의 문자열입니다.
    개인정보가 아니고, 서버는 '같은 기기인가'만 봅니다. */
