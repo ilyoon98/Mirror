@@ -10,7 +10,7 @@
 /* 로그 포맷 + 판 규칙 버전.
    규칙이 바뀌면 반드시 올립니다. 시드에도 들어가므로(dailySeed) 옛 규칙으로 등재된
    기록과 새 규칙의 판이 같은 순위표에서 섞이지 않습니다. */
-const PROTOCOL = 'mr2';
+const PROTOCOL = 'mr3';
 
 /* ---------------- 타일 종류 ----------------
    grid[r][c] 에 들어가는 값. null 은 빈 칸입니다. */
@@ -253,14 +253,13 @@ function genLevel(rng, n, level){
 /* 특수 타일 배치.
    레벨에 따라 소멸 → 프리즘 → 단방향 순으로 점진적으로 등장시킵니다.
    두 출구의 '최적 경로'가 지나는 칸은 건드리지 않아, 적어도 그 두 답은 살아남습니다. */
-/* 프리즘·단방향 거울 — 배치 구조는 고쳤고(배치 후 회피 → 배치 후 재검증),
-   판정 규칙도 확정했지만 **보너스 배율 수치가 아직 안 정해져서** 켜지 않습니다.
+/* 프리즘·단방향 거울 — v1.5 에서 켰습니다.
 
-   막고 있던 구조적 원인은 해결됐습니다. placeHazards 주석을 보세요.
-   켤 때는 규칙이 바뀌는 것이므로 PROTOCOL 을 올려야 합니다(mr2 → mr3).
-   SPLIT_BONUS 수치를 확정한 뒤 두 값을 true 로 바꾸면 됩니다. */
-const PRISM_ENABLED = false;
-const ONEWAY_ENABLED = false;
+   오래 막혀 있던 원인은 '배치 후 회피' 라는 생성 방식이었습니다(placeHazards 주석 참고).
+   '배치 후 재검증' 으로 바꾸고, 프리즘은 직진을 없애 좌우 2갈래로 확정했습니다.
+   실측 — 프리즘 '1갈래 이상 출구 도달' 46.8%, 단방향 '정답 경로 관여' 94.1%. */
+const PRISM_ENABLED = true;
+const ONEWAY_ENABLED = true;
 
 function hazardPlan(n, level){
   const total = n*n;
