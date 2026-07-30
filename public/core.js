@@ -86,21 +86,23 @@ const MAX_LIFE    = 3;
      absorbed : 소멸 타일에 흡수됨 (그 갈래는 실패)
      loop     : 무한 반사
 
-   무한 재귀를 막기 위해 프리즘 통과 횟수(MAX_SPLITS)와
-   전체 스텝 수(STEP_BUDGET)에 상한을 둡니다.                       */
-const MAX_SPLITS  = 2;      // 한 발에서 프리즘을 최대 2번까지만 갈라짐
+   무한 재귀를 막기 위해 한 갈래가 지날 수 있는 프리즘 수(MAX_SPLITS)와
+   전체 스텝 수(STEP_BUDGET)에 상한을 둡니다.
+   MAX_SPLITS 는 **갈래별 깊이**입니다. 프리즘 1개당 2갈래이므로 최대 2²=4갈래입니다. */
+const MAX_SPLITS  = 2;      // 한 갈래가 프리즘을 최대 2번까지 지날 수 있음
 const STEP_BUDGET = 900;    // 모든 갈래를 합친 이동 칸 수 상한
 
 function trace(grid, n, r0, c0, d0){
   const beams = [];
-  let steps = 0, splits = 0;
+  let steps = 0, splits = 0;          // splits: 이 발에서 일어난 분기 횟수(0이면 프리즘을 안 지남)
 
   // 시작 지점이 프리즘이어도 첫 칸에서는 갈라지지 않습니다(설치 칸은 항상 빈 칸)
-  const queue = [{ r:r0, c:c0, d:d0, path:[[r0,c0]], seen:new Set() }];
+  const queue = [{ r:r0, c:c0, d:d0, depth:0, path:[[r0,c0]], seen:new Set() }];
 
   while(queue.length){
     const b = queue.shift();
     let { r, c, d, path, seen } = b;
+    const depth = b.depth;
 
     for(;;){
       if(steps++ > STEP_BUDGET){ beams.push({ path, exit:null, loop:true, absorbed:false }); break; }
@@ -119,18 +121,22 @@ function trace(grid, n, r0, c0, d0){
         beams.push({ path, exit:null, loop:false, absorbed:true }); break;
       }
       if(t === T.PRISM){
-        if(splits >= MAX_SPLITS){                          // 상한을 넘으면 직진 처리
-          continue;
+        /* 좌 90°·우 90° **두 갈래만** 만듭니다. 직진 갈래는 만들지 않습니다.
+
+           직진을 두면 프리즘이 원래 정답 경로를 그대로 이어받아, 프리즘이 없어도
+           성공했을 발사에 배율만 얹히는 '공짜 성공' 이 생깁니다(실측 43.1%).
+           직진을 없애면 그 경우가 구조적으로 발생할 수 없어 예외 처리가 필요 없습니다. */
+        if(depth >= MAX_SPLITS){
+          // 분기 예산을 다 쓴 갈래는 여기서 끝납니다 (직진으로 통과시키지 않습니다)
+          beams.push({ path, exit:null, loop:false, absorbed:false, blocked:true }); break;
         }
         splits++;
-        // 들어온 반대편(뒤쪽)만 빼고 직진 + 좌90 + 우90 세 갈래
         const back = OPP[d];
         for(const nd of DKEYS){
-          if(nd === back) continue;
-          if(nd === d) continue;                            // 직진은 이 루프가 계속 이어갑니다
-          queue.push({ r, c, d:nd, path:path.slice(), seen:new Set(seen) });
+          if(nd === back || nd === d) continue;              // 뒤로도, 직진으로도 가지 않습니다
+          queue.push({ r, c, d:nd, depth:depth+1, path:path.slice(), seen:new Set(seen) });
         }
-        continue;                                           // 직진 갈래는 그대로 진행
+        break;                                               // 들어온 갈래는 프리즘에서 소비됩니다
       }
       if(isOneway(t)){
         if(onewayPasses(d)) continue;                       // E/S 진행 → 그냥 통과
