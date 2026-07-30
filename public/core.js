@@ -10,7 +10,7 @@
 /* 로그 포맷 + 판 규칙 버전.
    규칙이 바뀌면 반드시 올립니다. 시드에도 들어가므로(dailySeed) 옛 규칙으로 등재된
    기록과 새 규칙의 판이 같은 순위표에서 섞이지 않습니다. */
-const PROTOCOL = 'mr4';
+const PROTOCOL = 'mr5';
 
 /* ---------------- 타일 종류 ----------------
    grid[r][c] 에 들어가는 값. null 은 빈 칸입니다. */
@@ -274,8 +274,11 @@ function hazardPlan(n, level){
   const total = n*n;
   return {
     vanish : Math.min(1 + Math.floor(level/5), 3),
-    prism  : (PRISM_ENABLED && level>=8) ? Math.min(1 + Math.floor((level-8)/10), 2) : 0,
-    oneway : (ONEWAY_ENABLED && level>=10) ? Math.min(1 + Math.floor((level-10)/12), 2) : 0,
+    /* 등장 시점을 앞으로 당겼습니다(v1.7).
+       첫 피버가 5연속 클리어 직후(=레벨 6 진입)이므로, 프리즘을 그 시점에 붙여
+       "피버를 한 번 보고 나면 새 기믹이 열린다"는 리듬을 만듭니다. */
+    prism  : (PRISM_ENABLED && level>=6) ? Math.min(1 + Math.floor((level-6)/8), 2) : 0,
+    oneway : (ONEWAY_ENABLED && level>=8) ? Math.min(1 + Math.floor((level-8)/10), 2) : 0,
     cap    : Math.max(3, Math.floor(total*0.18))     // 방 대비 과밀 방지
   };
 }

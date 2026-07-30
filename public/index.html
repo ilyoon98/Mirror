@@ -360,10 +360,15 @@
   .cmplist .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .cmplist .sc{color:var(--gold);font-weight:700;font-variant-numeric:tabular-nums}
   .cmplist .lv{color:var(--dim);font-size:.6875rem;width:2.6rem;text-align:right}
-  /* v1.6 이펙트 */
-  .fx-mirror{fill:none;stroke:#cfd8ff;stroke-width:2.5;opacity:.85}
-  .fx-prism{fill:none;stroke:var(--fever,#c98bff);stroke-width:3;opacity:.9}
-  .fx-absorb{fill:var(--pink)}
+  /* v1.7 이펙트 — 굵기는 방 크기 배율(--k)에 맞춰 줍니다 */
+  .fx-core{fill:#fff}
+  .fx-mirror{fill:none;stroke:#eaf2ff;stroke-width:calc(2.6px * var(--k))}
+  .fx-mirror2{fill:none;stroke:var(--cyan);stroke-width:calc(2px * var(--k));opacity:.85}
+  .fx-prism{fill:none;stroke:#c98bff;stroke-width:calc(3px * var(--k))}
+  .fx-prism2{fill:none;stroke:#8ff3ff;stroke-width:calc(2px * var(--k));opacity:.8}
+  .fx-suck{fill:none;stroke:var(--pink);stroke-width:calc(3px * var(--k))}
+  .fx-absorbring{fill:none;stroke:var(--pink);stroke-width:calc(2.4px * var(--k))}
+  #gFx{mix-blend-mode:screen}
   .floatgain{position:absolute;left:50%;top:-.1rem;transform:translateX(-50%);
     font-size:.8125rem;font-weight:800;color:var(--green);pointer-events:none;
     animation:floatup .9s ease-out forwards}
@@ -448,7 +453,7 @@
       <button class="btn ghost tiny" id="btnHomeHelp" type="button">도움말</button>
     </div>
     <p class="hintrow homefoot">키보드: 방향키 이동 · Q/E 회전 · Space 발사
-      · <b>v1.6</b></p>
+      · <b>v1.7</b></p>
   </section>
 
   <h1 class="title">
@@ -457,7 +462,7 @@
     <button class="verbtn" id="btnBoard" type="button"
             aria-label="자유 플레이 전체 순위 보기">순위</button>
     <button class="verbtn" id="btnVer" type="button"
-            aria-label="현재 버전 v1.6, 업데이트 내역 보기">v1.6</button>
+            aria-label="현재 버전 v1.7, 업데이트 내역 보기">v1.7</button>
   </h1>
 
   <div class="hud">
@@ -572,12 +577,12 @@
         가능한 최고 점수를 뽑으면 PERFECT입니다.</dd>
       <dt>소멸 타일</dt><dd>빔이 닿으면 흡수되어 <b>실패</b>합니다. 피해서 가세요.</dd>
       <dt>프리즘 <span aria-hidden="true">◈</span></dt>
-        <dd>레벨 8부터 등장합니다. 빔이 <b>좌 90°·우 90° 두 갈래</b>로 갈라집니다
+        <dd>레벨 6부터 등장합니다. 빔이 <b>좌 90°·우 90° 두 갈래</b>로 갈라집니다
         (직진 갈래는 없습니다). 한 갈래라도 <b>EXIT</b>로 나가면 클리어이고,
         죽은 갈래는 그 갈래만 무효라 판을 망치지 않습니다.
         <b>보드 밖으로 나간 갈래가 많을수록</b> 점수 배율이 올라갑니다(2갈래 1.25배 · 3갈래 1.6배 · 4갈래 2배).
         다만 모든 갈래가 벽·소멸·맴돌기로 끝나면 실패입니다.</dd>
-      <dt>단방향 거울</dt><dd>레벨 10부터 등장합니다. <b>위나 왼쪽에서 들어오면 그냥 통과</b>하고,
+      <dt>단방향 거울</dt><dd>레벨 8부터 등장합니다. <b>위나 왼쪽에서 들어오면 그냥 통과</b>하고,
         <b>아래나 오른쪽에서 들어오면 반사</b>합니다. 어느 쪽으로 지나는지에 따라
         지름길이 되기도, 막는 벽이 되기도 합니다.</dd>
       <dt>FLIP <kbd aria-hidden="true">G</kbd></dt>
@@ -601,6 +606,15 @@
   <div class="screen hide" id="screenLog">
     <h2>업데이트 내역</h2>
     <div class="loglist">
+      <h3>v1.7 <em>화려한 피격 이펙트 · 기믹 조기 등장</em></h3>
+      <ul>
+        <li><b>거울에 닿을 때 이펙트가 확 화려해졌습니다.</b> 섬광 · 이중 링 ·
+            거울면을 따라 튀는 불꽃 · 위로 흩어지는 잔불이 겹칩니다</li>
+        <li><b>프리즘</b>은 갈라지는 두 방향으로 뿜고, <b>소멸 타일</b>은 안으로 빨려들며 터집니다</li>
+        <li><b>프리즘이 레벨 6</b>, <b>단방향 거울이 레벨 8</b>부터 나옵니다.
+            첫 피버를 본 직후에 새 기믹이 열리도록 앞당겼습니다 (예전 8 / 10)</li>
+        <li>연출이 부담스러우면 <b>F</b> 로 끌 수 있습니다</li>
+      </ul>
       <h3>v1.6 <em>60초 한 판 · 홈 화면</em></h3>
       <ul>
         <li><b>시간이 런 전체로 하나</b>가 됐습니다. 판마다 초기화되지 않고 <b>60초</b>를 함께 씁니다.
@@ -614,9 +628,9 @@
       </ul>
       <h3>v1.5 <em>프리즘 · 단방향 거울</em></h3>
       <ul>
-        <li><b>프리즘</b>이 레벨 8부터 등장합니다. 빔이 <b>좌우 두 갈래</b>로 갈라지고,
+        <li><b>프리즘</b>이 레벨 6부터 등장합니다. 빔이 <b>좌우 두 갈래</b>로 갈라지고,
             한 갈래만 EXIT로 나가도 클리어입니다. 보드 밖으로 나간 갈래가 많을수록 배율이 올라갑니다</li>
-        <li><b>단방향 거울</b>이 레벨 10부터 등장합니다. 위·왼쪽에서 들어오면 통과,
+        <li><b>단방향 거울</b>이 레벨 8부터 등장합니다. 위·왼쪽에서 들어오면 통과,
             아래·오른쪽에서 들어오면 반사합니다</li>
         <li>죽은 갈래는 <b>그 갈래만 무효</b>입니다 — 한 갈래가 소멸 타일에 닿아도 판이 실패하지 않습니다</li>
         <li>규칙이 바뀌어 <b>순위표를 새로 시작</b>했습니다. 예전 기록은 그대로 보관돼 있습니다</li>
@@ -1392,9 +1406,48 @@ function fizzle(x,y){
   }
 }
 
-/* ---------- v1.6 이펙트 ----------
-   연출 끄기(F)를 켜면 전부 건너뜁니다. */
-function timeGainFx(ms){                       // PERFECT 시간 회복 — HUD 위로 뜨는 +N.Ns
+/* ---------- v1.7 타일 피격 이펙트 ----------
+   거울에 닿는 순간이 이 게임에서 가장 자주 보이는 장면이라 여기에 가장 공을 들였습니다.
+   섬광 → 이중 링 → 거울면을 따라 튀는 불꽃 → 위로 흩어지는 잔불이 겹칩니다.
+   연출 끄기(F)면 전부 건너뜁니다. Math.random 은 보기용이라 판 재현과 무관합니다. */
+const FX_CAP = 140;                       // 동시 이펙트 상한 (모바일 보호)
+function fxRoom(){ return fxOn && gFx.childElementCount < FX_CAP; }
+function fxAdd(el, life){ gFx.appendChild(el); setTimeout(()=>el.remove(), life); return el; }
+
+function fxRing(x,y,r0,scale,cls,ms,delay){
+  const e = mk('circle',{cx:x,cy:y,r:r0,class:cls});
+  e.style.transition = 'transform '+ms+'ms cubic-bezier(.15,.7,.25,1), opacity '+ms+'ms ease-out';
+  fxAdd(e, ms+delay+90);
+  setTimeout(()=>requestAnimationFrame(()=>{
+    e.style.transform = 'scale('+scale+')'; e.style.opacity='0'; }), delay);
+}
+function fxShrink(x,y,r0,cls,ms){          // 안으로 빨려드는 링 (소멸 타일)
+  const e = mk('circle',{cx:x,cy:y,r:r0,class:cls});
+  e.style.transition = 'transform '+ms+'ms ease-in, opacity '+ms+'ms ease-in';
+  fxAdd(e, ms+90);
+  requestAnimationFrame(()=>{ e.style.transform='scale(.08)'; e.style.opacity='0'; });
+}
+function fxShard(x,y,ang,len,w,color,ms,delay){
+  const e = mk('line',{x1:x,y1:y,x2:(x+Math.cos(ang)*5*K).toFixed(1),y2:(y+Math.sin(ang)*5*K).toFixed(1),
+    stroke:color,'stroke-width':w.toFixed(2),'stroke-linecap':'round'});
+  e.style.transition = 'transform '+ms+'ms cubic-bezier(.1,.85,.2,1), opacity '+ms+'ms ease-out';
+  fxAdd(e, ms+delay+90);
+  setTimeout(()=>requestAnimationFrame(()=>{
+    e.style.transform = 'translate('+(Math.cos(ang)*len).toFixed(1)+'px,'+(Math.sin(ang)*len).toFixed(1)+'px)';
+    e.style.opacity='0'; }), delay);
+}
+function fxEmber(x,y,ang,dist,color,ms,delay){
+  const e = mk('circle',{cx:x,cy:y,r:((1.5+Math.random()*1.7)*K).toFixed(2),fill:color});
+  e.style.transition = 'transform '+ms+'ms ease-out, opacity '+ms+'ms ease-in';
+  fxAdd(e, ms+delay+90);
+  const dx = Math.cos(ang)*dist, dy = Math.sin(ang)*dist - 10*K;   // 살짝 위로 떠오릅니다
+  setTimeout(()=>requestAnimationFrame(()=>{
+    e.style.transform = 'translate('+dx.toFixed(1)+'px,'+dy.toFixed(1)+'px) scale(.35)';
+    e.style.opacity='0'; }), delay);
+}
+
+/* PERFECT 시간 회복 — HUD 위로 떠오르는 +N.Ns */
+function timeGainFx(ms){
   if(!fxOn) return;
   const host = $('uiLife').parentElement;
   const t = document.createElement('span');
@@ -1403,37 +1456,63 @@ function timeGainFx(ms){                       // PERFECT 시간 회복 — HUD 
   host.appendChild(t);
   setTimeout(()=>t.remove(), 900);
 }
-// 타일 종류별 피격 이펙트 — 거울/단방향은 링, 소멸은 붉은 파열, 프리즘은 갈라짐
-function tileFx(kind, r, c){
-  if(!fxOn) return;
+
+/* 타일 종류별 피격 이펙트. tile 은 실제 타일 값, (dx,dy) 는 들어온 방향입니다. */
+function tileFx(kind, r, c, tile, dx, dy){
+  if(!fxRoom()) return;
   const x = cx(c), y = cy(r);
+
   if(kind==='vanish'){
-    for(let i=0;i<8;i++){
-      const a=Math.PI*2*i/8, R=30*K;
-      const p=mk('circle',{cx:x,cy:y,r:3.5*K,class:'fx-absorb'});
-      p.style.transition='transform .40s ease-out, opacity .40s ease-out';
-      gFx.appendChild(p);
-      requestAnimationFrame(()=>{
-        p.style.transform=`translate(${(Math.cos(a)*R).toFixed(1)}px,${(Math.sin(a)*R).toFixed(1)}px) scale(.3)`;
-        p.style.opacity='0'; });
-      setTimeout(()=>p.remove(),440);
+    fxShrink(x,y,36*K,'fx-suck',300);
+    fxRing(x,y,8*K,3.2,'fx-absorbring',400,60);
+    for(let i=0;i<12;i++){
+      const a = Math.PI*2*i/12 + Math.random()*.3;
+      fxShard(x,y,a,(24+Math.random()*18)*K,(2+Math.random()*1.4)*K,
+        i%2?'#ff5f8f':'#ff9ab5',300+Math.random()*140, i*10);
     }
     return;
   }
-  const cls = kind==='prism' ? 'fx-prism' : 'fx-mirror';
-  const ring = mk('circle',{cx:x,cy:y,r:8*K,class:cls});
-  ring.style.transition='transform .34s ease-out, opacity .34s ease-out';
-  gFx.appendChild(ring);
-  requestAnimationFrame(()=>{ ring.style.transform='scale(3.2)'; ring.style.opacity='0'; });
-  setTimeout(()=>ring.remove(),380);
+
+  if(kind==='prism'){
+    fxRing(x,y,7*K,2.3,'fx-core',180,0);
+    fxRing(x,y,10*K,4.2,'fx-prism',400,30);
+    fxRing(x,y,10*K,5.6,'fx-prism2',560,120);
+    // 갈라지는 두 방향(진입 기준 좌·우 90°)으로 뿜습니다
+    const base = Math.atan2(dy||0, dx||1);
+    for(const side of [Math.PI/2, -Math.PI/2]){
+      for(let k2=0;k2<6;k2++){
+        fxShard(x,y, base+side+(Math.random()-.5)*.55, (30+Math.random()*26)*K,
+          (2.4+Math.random()*1.5)*K, k2%2?'#d9a8ff':'#8ff3ff', 340+Math.random()*170, k2*14);
+      }
+    }
+    return;
+  }
+
+  /* 거울 · 단방향 거울 — 거울면(대각선)을 따라 양쪽으로 불꽃이 튑니다 */
+  const slash = (tile===MC.T.MIRROR_A || tile===MC.T.ONEWAY_A);   // '/' 계열
+  const axis  = slash ? -Math.PI/4 : Math.PI/4;
+  fxRing(x,y,7*K,2.1,'fx-core',170,0);
+  fxRing(x,y,9*K,3.6,'fx-mirror',330,20);
+  fxRing(x,y,9*K,5.0,'fx-mirror2',480,90);
+  for(let k2=0;k2<10;k2++){
+    const ang = axis + (k2%2 ? 0 : Math.PI) + (Math.random()-.5)*.75;
+    fxShard(x,y,ang,(26+Math.random()*24)*K,(2.2+Math.random()*1.7)*K,
+      k2%3===0?'#ffd8a0':(k2%3===1?'#8ff3ff':'#ffffff'), 300+Math.random()*170, k2*11);
+  }
+  for(let k2=0;k2<6;k2++){
+    const ang = -Math.PI/2 + (Math.random()-.5)*1.9;
+    fxEmber(x,y,ang,(20+Math.random()*26)*K, k2%2?'#ffb347':'#ff7b3d',
+      620+Math.random()*260, 40+k2*26);
+  }
 }
-// 한 발이 지나간 경로의 타일들에 순서대로 이펙트를 흘립니다
+
+/* 한 발이 지나간 경로의 타일에 순서대로 이펙트를 흘립니다 */
 function pathFx(beams, dur){
   if(!fxOn) return;
   const seen = new Set();
   for(const b of beams){
     const step = dur/Math.max(1,b.path.length-1);
-    b.path.forEach(([r,c],i)=>{
+    b.path.forEach(([r,c],idx)=>{
       const t = S.grid[r][c];
       let kind = null;
       if(t===MC.T.VANISH) kind='vanish';
@@ -1443,7 +1522,9 @@ function pathFx(beams, dur){
       const key = r+','+c;
       if(seen.has(key)) return;
       seen.add(key);
-      setTimeout(()=>tileFx(kind,r,c), i*step);
+      const prev = b.path[idx-1];
+      const dx = prev ? c-prev[1] : 0, dy = prev ? r-prev[0] : 0;
+      setTimeout(()=>tileFx(kind,r,c,t,dx,dy), idx*step);
     });
   }
 }
@@ -2165,8 +2246,8 @@ const TUT = [
     fig:'60.0 → 0.0' },
   { t:'특수 타일',
     h:'<b>소멸 타일</b> — 빔이 흡수되어 실패합니다.<br>'
-     +'<b>프리즘</b>(레벨 8+) — 좌우 두 갈래로 갈라집니다. 한 갈래만 EXIT로 나가도 클리어.<br>'
-     +'<b>단방향 거울</b>(레벨 10+) — 위·왼쪽에서는 통과, 아래·오른쪽에서는 반사.<br>'
+     +'<b>프리즘</b>(레벨 6+) — 좌우 두 갈래로 갈라집니다. 한 갈래만 EXIT로 나가도 클리어.<br>'
+     +'<b>단방향 거울</b>(레벨 8+) — 위·왼쪽에서는 통과, 아래·오른쪽에서는 반사.<br>'
      +'<b>FLIP</b>(G) — 모든 거울을 뒤집습니다. 몇 번이든 쓸 수 있습니다.',
     fig:'X  ◈  ╱' }
 ];
