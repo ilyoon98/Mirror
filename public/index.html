@@ -570,7 +570,7 @@
       <button class="btn ghost tiny" id="btnHomeHelp" type="button">도움말</button>
     </div>
     <p class="hintrow homefoot">키보드: 방향키 이동 · Q/E 회전 · Space 발사
-      · <b>v1.12.0</b></p>
+      · <b>v1.12.1</b></p>
   </section>
 
   <h1 class="title">
@@ -579,7 +579,7 @@
     <button class="verbtn" id="btnBoard" type="button"
             aria-label="자유 플레이 전체 순위 보기">순위</button>
     <button class="verbtn" id="btnVer" type="button"
-            aria-label="현재 버전 v1.12.0, 업데이트 내역 보기">v1.12.0</button>
+            aria-label="현재 버전 v1.12.1, 업데이트 내역 보기">v1.12.1</button>
   </h1>
 
   <div class="hud">
@@ -727,6 +727,11 @@
   <div class="screen hide" id="screenLog">
     <h2>업데이트 내역</h2>
     <div class="loglist">
+      <h3>v1.12.1 <em>이펙트 위치 수정</em></h3>
+      <ul>
+        <li><b>이펙트가 엉뚱한 자리에서 터지던 문제를 고쳤습니다.</b>
+            구석 칸일수록 링이 판 밖으로 크게 밀려났습니다</li>
+      </ul>
       <h3>v1.12.0 <em>연출 다듬기</em></h3>
       <ul>
         <li><b>이펙트가 판 밖으로 날아가던 문제를 고쳤습니다.</b> EXIT 폭발 링이 버튼과
@@ -1642,6 +1647,10 @@ function fxAdd(el, life){ gFx.appendChild(el); setTimeout(()=>el.remove(), life)
 
 function fxRing(x,y,r0,scale,cls,ms,delay){
   const e = mk('circle',{cx:x,cy:y,r:r0,class:cls});
+  /* SVG 요소의 transform-origin 기본값은 자기 위치가 아니라 **뷰박스 중심** 입니다.
+     지정하지 않으면 링이 커질수록 중심이 화면 가운데 기준으로 밀려나,
+     구석 칸일수록 엉뚱한 자리에서 터집니다. 기존 ring() 처럼 자기 좌표로 고정합니다. */
+  e.style.transformOrigin = x+'px '+y+'px';
   e.style.transition = 'transform '+ms+'ms cubic-bezier(.15,.7,.25,1), opacity '+ms+'ms ease-out';
   fxAdd(e, ms+delay+90);
   setTimeout(()=>requestAnimationFrame(()=>{
@@ -1649,6 +1658,7 @@ function fxRing(x,y,r0,scale,cls,ms,delay){
 }
 function fxShrink(x,y,r0,cls,ms){          // 안으로 빨려드는 링 (소멸 타일)
   const e = mk('circle',{cx:x,cy:y,r:r0,class:cls});
+  e.style.transformOrigin = x+'px '+y+'px';
   e.style.transition = 'transform '+ms+'ms ease-in, opacity '+ms+'ms ease-in';
   fxAdd(e, ms+90);
   requestAnimationFrame(()=>{ e.style.transform='scale(.08)'; e.style.opacity='0'; });
