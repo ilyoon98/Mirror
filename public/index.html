@@ -469,8 +469,38 @@
   body.beatDown .timebar{animation:beatGlow .3s ease-out}
   body.beat .ctl.fire .ico, body.beatDown .ctl.fire .ico{animation:beatPop .26s ease-out}
   body.beatDown #homeScreen .homelogo{animation:beatPop .3s ease-out}
+
+  /* 보드 안의 것들 — 거울 · 프리즘 · 단방향 · 출구 · 피버 타일.
+     .bt 가 붙은 요소는 그릴 때 transform-origin 을 자기 좌표로 박아 둡니다. */
+  @keyframes beatTile{0%{transform:scale(1)}24%{transform:scale(1.07)}100%{transform:scale(1)}}
+  @keyframes beatTileBig{0%{transform:scale(1)}24%{transform:scale(1.13)}100%{transform:scale(1)}}
+  body.beat .board .bt{animation:beatTile .26s ease-out}
+  body.beatDown .board .bt{animation:beatTileBig .3s ease-out}
+
+  /* ── 피버: 곡이 178 BPM 으로 바뀌는 만큼 화면도 광폭으로 ── */
+  @keyframes beatPopF{0%{transform:scale(1)}22%{transform:scale(1.13)}100%{transform:scale(1)}}
+  @keyframes beatPopFBig{0%{transform:scale(1) rotate(0)}
+    22%{transform:scale(1.24) rotate(-1.5deg)}100%{transform:scale(1) rotate(0)}}
+  @keyframes beatTileF{0%{transform:scale(1)}22%{transform:scale(1.14)}100%{transform:scale(1)}}
+  @keyframes beatTileFBig{0%{transform:scale(1)}22%{transform:scale(1.26)}100%{transform:scale(1)}}
+  @keyframes beatGlowF{0%{box-shadow:0 0 0 rgba(255,176,61,0)}
+    22%{box-shadow:0 0 28px rgba(255,176,61,.65)}100%{box-shadow:0 0 0 rgba(255,176,61,0)}}
+  /* 흔들림은 3px 까지만 — 피버는 타일을 빠르게 두드리는 구간이라
+     여기서 크게 흔들면 누르려던 칸을 놓칩니다 */
+  @keyframes beatShake{0%{transform:translate3d(0,0,0)}
+    25%{transform:translate3d(-3px,1px,0)}55%{transform:translate3d(2px,-1px,0)}
+    100%{transform:translate3d(0,0,0)}}
+  body.fevermode.beat .hud .stat{animation:beatPopF .16s ease-out}
+  body.fevermode.beatDown .hud .stat{animation:beatPopFBig .19s ease-out}
+  body.fevermode.beat .board .bt{animation:beatTileF .16s ease-out}
+  body.fevermode.beatDown .board .bt{animation:beatTileFBig .19s ease-out}
+  body.fevermode.beat .ctl.fire .ico,
+  body.fevermode.beatDown .ctl.fire .ico{animation:beatPopF .16s ease-out}
+  body.fevermode.beat .timebar, body.fevermode.beatDown .timebar{animation:beatGlowF .18s ease-out}
+  body.fevermode.beatDown .board{animation:beatShake .19s ease-out}
+
   body.nofx .hud .stat, body.nofx .timebar, body.nofx .ctl.fire .ico,
-  body.nofx #homeScreen .homelogo{animation:none !important}
+  body.nofx #homeScreen .homelogo, body.nofx .board, body.nofx .board .bt{animation:none !important}
 
   /* v1.7 이펙트 — 굵기는 방 크기 배율(--k)에 맞춰 줍니다 */
   .fx-core{fill:#fff}
@@ -589,7 +619,7 @@
       <button class="btn ghost tiny" id="btnHomeHelp" type="button">도움말</button>
     </div>
     <p class="hintrow homefoot">키보드: 방향키 이동 · Q/E 회전 · Space 발사
-      · <b>v1.14.0</b></p>
+      · <b>v1.15.0</b></p>
   </section>
 
   <h1 class="title">
@@ -598,7 +628,7 @@
     <button class="verbtn" id="btnBoard" type="button"
             aria-label="자유 플레이 전체 순위 보기">순위</button>
     <button class="verbtn" id="btnVer" type="button"
-            aria-label="현재 버전 v1.14.0, 업데이트 내역 보기">v1.14.0</button>
+            aria-label="현재 버전 v1.15.0, 업데이트 내역 보기">v1.15.0</button>
   </h1>
 
   <div class="hud">
@@ -749,6 +779,17 @@
   <div class="screen hide" id="screenLog">
     <h2>업데이트 내역</h2>
     <div class="loglist">
+      <h3>v1.15.0 <em>피버 전용 BGM · 보드까지 박자 펄스</em></h3>
+      <ul>
+        <li><b>피버에 아예 다른 곡이 깔립니다.</b> 178 BPM, Am-Am-F-E7 진행에
+            16분음표로 구르는 베이스와 리드. 진입 순간 크래시 한 방이 터집니다</li>
+        <li><b>거울 · 프리즘 · 단방향 · EXIT · 피버 타일이 박자마다 뜁니다.</b>
+            평소엔 7%, 피버에는 26%까지 부풀고 보드도 함께 흔들립니다</li>
+        <li><b>레이저 선단도 박자에 맞춰 부풉니다</b> — 반지름 8 → 11.9.
+            좌표가 매 프레임 바뀌는 물건이라 CSS 가 아니라 계산으로 처리했습니다</li>
+        <li>피버 중엔 <b>8분음표마다</b> 펄스가 옵니다. 평소 435ms → 피버 169ms</li>
+        <li>음악을 꺼도 화면 펄스는 같은 박자로 계속 뜁니다. <b>연출 끄기(F)</b> 면 전부 멈춥니다</li>
+      </ul>
       <h3>v1.14.0 <em>더 신나게 · 박자에 맞춰 뛰는 UI</em></h3>
       <ul>
         <li><b>템포를 112 → 138 BPM 으로 올리고 편성을 두껍게 했습니다.</b>
@@ -1053,6 +1094,10 @@ const gCells=$('gCells'), gExit=$('gExit'), gBeam=$('gBeam'),
       gEmit=$('gEmit'), gFx=$('gFx'), gQuads=$('gQuads'), gCur=$('gCur');
 const SVGNS='http://www.w3.org/2000/svg';
 const mk=(t,a={})=>{const e=document.createElementNS(SVGNS,t);for(const k in a)e.setAttribute(k,a[k]);return e;};
+/* SVG 의 transform-origin 기본값은 자기 위치가 아니라 뷰박스 중심입니다.
+   scale() 을 쓰려면 매번 자기 좌표를 박아 줘야 합니다. (v1.12.1 에서 데인 곳) */
+const originC=(e,x,y)=>{ e.style.transformOrigin = x+'px '+y+'px'; return e; };
+const beatable=(e,x,y)=>{ e.classList.add('bt'); return originC(e,x,y); };
 const say = msg => { $('live').textContent = msg; };
 
 /* ============================ 저장 ============================ */
@@ -1108,13 +1153,25 @@ function ac(){
       1  콤보 3+   — 아르페지오 촘촘 + 클랩
       2  콤보 6+   — 옥타브 + 리드 리프
       3  피버      — 16분 아르페지오 + 매 박 킥 */
-const BPM = 138, STEP16 = 60/BPM/4;
+const BPM = 138, BPM_FEVER = 178;         // 피버는 아예 다른 곡, 다른 템포입니다
+const STEP16 = 60/BPM/4;                  // 기본 16분음표 길이(초)
 const PROG = [                            // Am - F - C - G
   { bass:110.00, chord:[220.00, 261.63, 329.63], lead:[440.00, 523.25, 659.25] },
   { bass: 87.31, chord:[174.61, 220.00, 261.63], lead:[349.23, 440.00, 523.25] },
   { bass:130.81, chord:[261.63, 329.63, 392.00], lead:[523.25, 659.25, 783.99] },
   { bass: 98.00, chord:[196.00, 246.94, 293.66], lead:[392.00, 493.88, 587.33] }
 ];
+/* 피버 전용 — Am - Am - F - E7.
+   마지막 마디를 5도(E)로 올려 매 바퀴 앞으로 넘어지듯 밀어붙입니다.
+   화성 단음계(G#)라서 평소 트랙과 확실히 다른 색이 납니다. */
+const FEVER_PROG = [
+  { bass:110.00, chord:[220.00, 261.63, 329.63], lead:[880.00, 1046.50, 1318.51] },
+  { bass:110.00, chord:[261.63, 329.63, 440.00], lead:[1046.50, 1318.51, 1567.98] },
+  { bass: 87.31, chord:[174.61, 261.63, 349.23], lead:[698.46,  880.00, 1046.50] },
+  { bass: 82.41, chord:[164.81, 207.65, 246.94], lead:[659.25,  830.61,  987.77] }
+];
+let mMode = 'normal';                     // 'normal' | 'fever'
+const stepDur = ()=> mMode==='fever' ? 60/BPM_FEVER/4 : STEP16;
 let musicOn = (()=>{ try{ return localStorage.getItem(MUSIC_KEY) !== '0'; }catch(e){ return true; } })();
 let MUSIC=null, mTimer=null, mStep=0, mNext=0, mScene='play';
 
@@ -1158,43 +1215,75 @@ function mKick(at){
   o.connect(g); g.connect(musicBus()); o.start(t); o.stop(t+0.2);
 }
 
-/* 한 스텝(16분음표)씩 미리 예약합니다 */
+function mCrash(at){                        // 피버 진입 순간의 한 방
+  mNoise(at, 0.9, 2600, 0.055);
+  mVoice(110, at, 0.6, 'sawtooth', 0.040);
+}
+/* 피버로 넘어갔는지 판정합니다. **음악을 꺼 둬도 화면 펄스는 빨라져야 하므로**
+   음악 스케줄러가 아니라 여기서 따로 관리합니다. */
+function applyMusicMode(at){
+  const want = (mScene !== 'home' && S.phase === 'fever') ? 'fever' : 'normal';
+  if(want === mMode) return false;
+  mMode = want; mStep = 0;                  // 새 곡은 1마디 1박부터
+  if(want === 'fever' && mTimer) mCrash(at || 0);
+  syncBeatSource();
+  return true;
+}
+/* 한 스텝(16분음표)씩 미리 예약합니다.
+   피버에 들어가고 나올 때는 곡 자체가 바뀌므로 마디를 처음으로 되감습니다. */
 function mTick(){
   const c = ac();
-  while(mNext < c.currentTime + 0.35){
+  applyMusicMode(Math.max(0, mNext - c.currentTime));
+  while(mNext < c.currentTime + 0.28){
     const at   = Math.max(0, mNext - c.currentTime);
     const step = mStep % 16, bar = Math.floor(mStep/16) % 4;
-    const P    = PROG[bar];
     const home = mScene === 'home';
-    const fever = S.phase === 'fever';
-    const inten = home ? -1
-                : fever ? 3
-                : S.combo>=6 ? 2 : S.combo>=3 ? 1 : 0;
-    const tense = !home && !fever && poolLeft() <= 10000 && S.phase!=='over';
+    const sd   = stepDur();
 
-    if(step === 0) mVoice(P.chord[0]/2, at, home?2.4:1.6, 'sine', home?0.024:0.016);   // 패드
+    if(mMode === 'fever'){
+      /* ── 피버: 178 BPM, 16분음표로 몰아치는 별개의 곡 ── */
+      const P = FEVER_PROG[bar];
+      mVoice(step%2 ? P.bass*2 : P.bass, at, sd*0.9, 'sawtooth', 0.030);   // 구르는 16분 베이스
+      if(step % 4 === 0) mKick(at);                                        // 4-on-the-floor
+      if(step % 8 === 4){ mNoise(at, 0.11, 1400, 0.040); mNoise(at, 0.05, 320, 0.030); }
+      mNoise(at, 0.022, 9000, step%2 ? 0.024 : 0.014);                     // 16분 하이햇
+      if(step % 4 === 2) mNoise(at, 0.10, 6000, 0.020);                    // 오픈 하이햇
+      const arp = P.lead[(mStep*2) % 3] * (step%8>=4 ? 2 : 1);
+      mVoice(arp, at, sd*1.2, 'square', 0.018);                            // 리드 아르페지오
+      if(step % 8 === 0) mVoice(P.chord[0], at, sd*7, 'sawtooth', 0.014);  // 스태브 코드
+      if(step === 0) mVoice(P.bass/2, at, sd*15, 'sine', 0.030);
+      if(bar === 3 && step >= 12)                                          // 마디 끝 라이저
+        mVoice(P.lead[2]*Math.pow(2,(step-12)/12), at, sd*1.1, 'sawtooth', 0.020);
+      if(step % 2 === 0) beatAt(at, step % 8 === 0);                       // 8분마다 화면도 뜁니다
+    } else {
+      const P = PROG[bar];
+      const inten = home ? -1 : S.combo>=6 ? 2 : S.combo>=3 ? 1 : 0;
+      const tense = !home && poolLeft() <= 10000 && S.phase!=='over';
 
-    if(home){                                   // ── 홈: 잔잔하게 ──
-      if(step % 8 === 0) mVoice(P.bass, at, 0.7, 'triangle', 0.026);
-      if(step % 4 === 2) mVoice(P.chord[(mStep/4|0) % 3], at, 0.34, 'sine', 0.020);
-    } else {                                    // ── 인게임 ──
-      if(step % 2 === 0) mVoice(P.bass, at, 0.16, 'sawtooth', 0.034);                  // 8분 베이스
-      if(step % 8 === 0 || (inten>=2 && step % 4 === 0)) mKick(at);                     // 킥
-      if(step % 8 === 4) mNoise(at, 0.09, 1200, 0.030);                                 // 클랩(2·4박)
-      const every = inten>=3 ? 1 : inten>=1 ? 2 : 4;
-      if(step % every === 0){
-        const n = P.chord[(mStep/every|0) % 3];
-        mVoice(n, at, 0.14, 'square', inten>=3 ? 0.020 : 0.016);
-        if(inten>=2) mVoice(n*2, at, 0.10, 'triangle', 0.011);
+      if(step === 0) mVoice(P.chord[0]/2, at, home?2.4:1.6, 'sine', home?0.024:0.016);
+
+      if(home){                                 // ── 홈: 잔잔하게 ──
+        if(step % 8 === 0) mVoice(P.bass, at, 0.7, 'triangle', 0.026);
+        if(step % 4 === 2) mVoice(P.chord[(mStep/4|0) % 3], at, 0.34, 'sine', 0.020);
+      } else {                                  // ── 인게임 ──
+        if(step % 2 === 0) mVoice(P.bass, at, 0.16, 'sawtooth', 0.034);
+        if(step % 8 === 0 || (inten>=2 && step % 4 === 0)) mKick(at);
+        if(step % 8 === 4) mNoise(at, 0.09, 1200, 0.030);
+        const every = inten>=1 ? 2 : 4;
+        if(step % every === 0){
+          const n = P.chord[(mStep/every|0) % 3];
+          mVoice(n, at, 0.14, 'square', 0.016);
+          if(inten>=2) mVoice(n*2, at, 0.10, 'triangle', 0.011);
+        }
+        if(step % 2 === 1) mNoise(at, 0.030, 8000, inten>=1 ? 0.020 : 0.013);
+        if(inten>=2 && step % 16 === 12)
+          P.lead.forEach((f,k2)=> mVoice(f, at + k2*sd, 0.13, 'sawtooth', 0.016));
+        if(tense && step % 8 === 0) mVoice(58.27, at, 0.42, 'sawtooth', 0.024);
       }
-      if(step % 2 === 1) mNoise(at, 0.030, 8000, inten>=1 ? 0.020 : 0.013);             // 하이햇
-      if(inten>=2 && step % 16 === 12)                                                  // 리드 리프
-        P.lead.forEach((f,k2)=> mVoice(f, at + k2*STEP16, 0.13, 'sawtooth', 0.016));
-      if(tense && step % 8 === 0) mVoice(58.27, at, 0.42, 'sawtooth', 0.024);
+      if(step % 4 === 0) beatAt(at, step === 0);
     }
 
-    if(step % 4 === 0) beatAt(at, step === 0);   // 박자를 화면에 넘깁니다
-    mNext += STEP16; mStep++;
+    mNext += sd; mStep++;
   }
 }
 
@@ -1202,22 +1291,35 @@ function mTick(){
    음악이 켜져 있으면 **오디오 시계**로 예약합니다. 소리와 같은 시계를 쓰므로
    화면이 박자에서 밀리지 않습니다. 음악을 꺼 두는 사람도 있으니, 그때는
    같은 BPM 의 단순 타이머로 대신 뛰게 합니다. */
+let lastBeat = 0, beatMs = 435;                // 빔 선단처럼 매 프레임 그리는 것들이 참고합니다
 function beatAt(at, downbeat){
   if(!fxOn) return;
+  const period = stepDur() * (mMode==='fever' ? 2 : 4) * 1000;
   setTimeout(()=>{
+    lastBeat = performance.now(); beatMs = period;
     const b = document.body;
     b.classList.remove('beat','beatDown');
     void b.offsetWidth;                        // 애니메이션 재시작
     b.classList.add(downbeat ? 'beatDown' : 'beat');
   }, Math.max(0, at*1000));
 }
+/* 마지막 박에서 얼마나 지났는지를 0~1 세기로 돌려줍니다.
+   CSS 로 다룰 수 없는 것 — 좌표가 매 프레임 바뀌는 빔 선단 — 에 씁니다. */
+function beatEnv(){
+  if(!fxOn) return 0;
+  const p = (performance.now() - lastBeat) / beatMs;
+  return (p < 0 || p > 1) ? 0 : Math.pow(1-p, 3);
+}
 let bTimer=null, bCount=0;
 function syncBeatSource(){
-  const fromAudio = !!mTimer;                  // 음악 스케줄러가 박자를 이미 내보내는 중
   clearInterval(bTimer); bTimer=null;
-  if(fromAudio) return;
+  if(mTimer) return;                           // 음악 스케줄러가 이미 박자를 내보내는 중
   bCount = 0;
-  bTimer = setInterval(()=>beatAt(0, (bCount++ % 4) === 0), STEP16*4*1000);
+  const per = stepDur() * (mMode==='fever' ? 2 : 4) * 1000;
+  bTimer = setInterval(()=>{
+    if(applyMusicMode()) return;               // 피버 전환 — 새 주기로 다시 잡힙니다
+    beatAt(0, (bCount++ % 4) === 0);
+  }, per);
 }
 
 function startMusic(scene){
@@ -1374,8 +1476,8 @@ function drawTile(x, y, t){
 
   if(MC.isMirror(t)){
     const a = diag(t);
-    gCells.appendChild(mk('line',{x1:a[0],y1:a[1],x2:a[2],y2:a[3],class:'mline2'}));
-    gCells.appendChild(mk('line',{x1:a[0],y1:a[1],x2:a[2],y2:a[3],class:'mline'}));
+    gCells.appendChild(beatable(mk('line',{x1:a[0],y1:a[1],x2:a[2],y2:a[3],class:'mline2'}),mx,my));
+    gCells.appendChild(beatable(mk('line',{x1:a[0],y1:a[1],x2:a[2],y2:a[3],class:'mline'}),mx,my));
     return;
   }
   if(t === MC.T.VANISH){
@@ -1388,8 +1490,8 @@ function drawTile(x, y, t){
   }
   if(t === MC.T.PRISM){
     const s = CELL*0.30;
-    gCells.appendChild(mk('polygon',{
-      points:`${mx},${my-s} ${mx+s},${my} ${mx},${my+s} ${mx-s},${my}`, class:'pgem'}));
+    gCells.appendChild(beatable(mk('polygon',{
+      points:`${mx},${my-s} ${mx+s},${my} ${mx},${my+s} ${mx-s},${my}`, class:'pgem'}),mx,my));
     // 갈라지는 3방향 느낌의 눈금
     for(const d of ['N','E','W'])
       gCells.appendChild(mk('polygon',{points:arrowPts(mx,my,d,CELL*0.42,3.5*K,CELL*0.34),class:'ptick'}));
@@ -1397,7 +1499,7 @@ function drawTile(x, y, t){
   }
   if(MC.isOneway(t)){
     const a = diag(MC.onewayFace(t));
-    gCells.appendChild(mk('line',{x1:a[0],y1:a[1],x2:a[2],y2:a[3],class:'oline'}));
+    gCells.appendChild(beatable(mk('line',{x1:a[0],y1:a[1],x2:a[2],y2:a[3],class:'oline'}),mx,my));
     // 통과 가능한 진입 방향(위에서 아래로, 왼쪽에서 오른쪽으로)을 화살표로 알림
     gCells.appendChild(mk('polygon',{
       points:arrowPts(mx, y+CELL*0.17, 'S', CELL*0.13, 4*K, 0), class:'oarr'}));
@@ -1449,14 +1551,14 @@ function drawExits(){
     const px=-dr, py=dc, W=20*K, T=20*K, A=7*K, B=10*K, L=40*K;
     // 1.4.1 — 배수는 색(초록/금색)뿐 아니라 글자(EXIT / EXIT ×2)로도 구분됩니다
     const k = e.mult===2 ? ' x2' : '';
-    gExit.appendChild(mk('line',{x1:x+px*W,y1:y+py*W,x2:x-px*W,y2:y-py*W,class:'exitglow'+k}));
-    gExit.appendChild(mk('polygon',{
+    gExit.appendChild(beatable(mk('line',{x1:x+px*W,y1:y+py*W,x2:x-px*W,y2:y-py*W,class:'exitglow'+k}),x,y));
+    gExit.appendChild(beatable(mk('polygon',{
       points:`${x+dc*T},${y+dr*T} ${x+dc*A+px*B},${y+dr*A+py*B} ${x+dc*A-px*B},${y+dr*A-py*B}`,
-      class:'exitarrow'+k}));
+      class:'exitarrow'+k}),x,y));
     const t = mk('text',{x:x+dc*4-px*L, y:y+dr*4-py*L,
       class:'exitlabel'+k,'text-anchor':'middle','dominant-baseline':'middle'});
     t.textContent = e.mult===2 ? 'EXIT ×2' : 'EXIT';
-    gExit.appendChild(t);
+    gExit.appendChild(beatable(t, x+dc*4-px*L, y+dr*4-py*L));
   });
 }
 
@@ -1754,6 +1856,9 @@ function flyBeam(o){
     const pt = line.getPointAtLength(d);
     head.setAttribute('cx',pt.x); head.setAttribute('cy',pt.y);
     halo.setAttribute('cx',pt.x); halo.setAttribute('cy',pt.y);
+    const bv = beatEnv();                      // 선단이 박자에 맞춰 부풉니다
+    head.setAttribute('r', (8  * (1 + 0.55*bv)).toFixed(2));
+    halo.setAttribute('r', (20 * (1 + 0.40*bv)).toFixed(2));
     while(next<pts.length && d>=cum[next]){
       if(fxOn && isMirror(next)) ring(pts[next][0],pts[next][1],'impact',.4);
       next++;
@@ -2055,6 +2160,8 @@ function startFever(){
   S.phase='fever'; S.feverHits=0; S.feverTaps=0; S.feverEnd=performance.now()+FEVER_MS;
   S.emitter=null;
   $('board').classList.add('fevermode','feverflash');
+  document.body.classList.add('fevermode');    // 박자 펄스가 광폭 모드로 바뀝니다
+  applyMusicMode();                            // 곡과 펄스를 즉시 피버 트랙으로
   $('controls').classList.add('fevermode');
   $('timebar').classList.add('fever');
   $('hintText').innerHTML = '<b>타일만 누르면 EXIT 쪽으로 발사!</b>';
@@ -2084,14 +2191,15 @@ function drawFeverRow(){
   gEmit.innerHTML=''; gQuads.innerHTML=''; gCur.innerHTML='';
   for(let i=0;i<5;i++){
     const x=ftx(i), m=S.feverRow[i];
-    gCells.appendChild(mk('rect',{x,y:FROWY,width:FTW,height:FTH,rx:12,
-      class:'ftile'+(m?' blocked':''),'data-col':i}));
+    const tcx = x+FTW/2, tcy = FROWY+FTH/2;
+    gCells.appendChild(beatable(mk('rect',{x,y:FROWY,width:FTW,height:FTH,rx:12,
+      class:'ftile'+(m?' blocked':''),'data-col':i}), tcx, tcy));
     if(m){
       const p=20;
       const a = m==='/' ? [x+p, FROWY+FTH-p, x+FTW-p, FROWY+p]
                         : [x+p, FROWY+p,     x+FTW-p, FROWY+FTH-p];
-      gCells.appendChild(mk('line',{x1:a[0],y1:a[1],x2:a[2],y2:a[3],class:'fmline2'}));
-      gCells.appendChild(mk('line',{x1:a[0],y1:a[1],x2:a[2],y2:a[3],class:'fmline'}));
+      gCells.appendChild(beatable(mk('line',{x1:a[0],y1:a[1],x2:a[2],y2:a[3],class:'fmline2'}), tcx, tcy));
+      gCells.appendChild(beatable(mk('line',{x1:a[0],y1:a[1],x2:a[2],y2:a[3],class:'fmline'}), tcx, tcy));
     }
     gQuads.appendChild(mk('rect',{x,y:FROWY,width:FTW,height:FTH,rx:12,class:'fhit','data-col':i}));
   }
@@ -2306,6 +2414,8 @@ function endFever(){
   S.phase='firing';                 // 게이지가 끝난 뒤 다음 레벨까지의 공백에 입력이 먹히지 않도록
   S.feverCol=null; S.feverRow=null; S.feverBusy=false; S.feverExit='R';
   $('board').classList.remove('fevermode');
+  document.body.classList.remove('fevermode');
+  applyMusicMode();                            // 평소 곡·평소 박자로 복귀
   $('controls').classList.remove('fevermode');
   $('timebar').classList.remove('fever');
   SFX.feverEnd();
