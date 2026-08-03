@@ -459,6 +459,19 @@
   .cmplist .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .cmplist .sc{color:var(--gold);font-weight:700;font-variant-numeric:tabular-nums}
   .cmplist .lv{color:var(--dim);font-size:.6875rem;width:2.6rem;text-align:right}
+  /* 박자 동기 펄스 — BPM 에 맞춰 UI 가 살짝 숨을 쉽니다 */
+  @keyframes beatPop{0%{transform:scale(1)}26%{transform:scale(1.045)}100%{transform:scale(1)}}
+  @keyframes beatPopBig{0%{transform:scale(1)}26%{transform:scale(1.075)}100%{transform:scale(1)}}
+  @keyframes beatGlow{0%{box-shadow:0 0 0 rgba(61,240,255,0)}
+    26%{box-shadow:0 0 18px rgba(61,240,255,.35)}100%{box-shadow:0 0 0 rgba(61,240,255,0)}}
+  body.beat .hud .stat{animation:beatPop .26s ease-out}
+  body.beatDown .hud .stat{animation:beatPopBig .3s ease-out}
+  body.beatDown .timebar{animation:beatGlow .3s ease-out}
+  body.beat .ctl.fire .ico, body.beatDown .ctl.fire .ico{animation:beatPop .26s ease-out}
+  body.beatDown #homeScreen .homelogo{animation:beatPop .3s ease-out}
+  body.nofx .hud .stat, body.nofx .timebar, body.nofx .ctl.fire .ico,
+  body.nofx #homeScreen .homelogo{animation:none !important}
+
   /* v1.7 이펙트 — 굵기는 방 크기 배율(--k)에 맞춰 줍니다 */
   .fx-core{fill:#fff}
   .fx-mirror{fill:none;stroke:#eaf2ff;stroke-width:calc(2.6px * var(--k))}
@@ -576,7 +589,7 @@
       <button class="btn ghost tiny" id="btnHomeHelp" type="button">도움말</button>
     </div>
     <p class="hintrow homefoot">키보드: 방향키 이동 · Q/E 회전 · Space 발사
-      · <b>v1.13.0</b></p>
+      · <b>v1.14.0</b></p>
   </section>
 
   <h1 class="title">
@@ -585,7 +598,7 @@
     <button class="verbtn" id="btnBoard" type="button"
             aria-label="자유 플레이 전체 순위 보기">순위</button>
     <button class="verbtn" id="btnVer" type="button"
-            aria-label="현재 버전 v1.13.0, 업데이트 내역 보기">v1.13.0</button>
+            aria-label="현재 버전 v1.14.0, 업데이트 내역 보기">v1.14.0</button>
   </h1>
 
   <div class="hud">
@@ -736,6 +749,19 @@
   <div class="screen hide" id="screenLog">
     <h2>업데이트 내역</h2>
     <div class="loglist">
+      <h3>v1.14.0 <em>더 신나게 · 박자에 맞춰 뛰는 UI</em></h3>
+      <ul>
+        <li><b>템포를 112 → 138 BPM 으로 올리고 편성을 두껍게 했습니다.</b>
+            8분음표 베이스, 킥, 클랩, 하이햇이 기본으로 깔립니다</li>
+        <li><b>콤보 6부터 리드 리프가 얹히고, 피버에는 16분음표로 몰아칩니다</b> —
+            단계가 기존 3단에서 5단으로 늘었습니다</li>
+        <li><b>홈 화면에도 음악이 흐릅니다.</b> 인게임보다 잔잔한 편성이고,
+            게임이 끝나 결과 화면으로 넘어가면 자연스럽게 이쪽으로 돌아옵니다</li>
+        <li><b>UI 가 박자에 맞춰 뜁니다.</b> HUD·발사 버튼·시간 막대가 매 박 살짝 커졌다 작아지고,
+            마디 첫 박에는 더 크게 부풀어 오릅니다</li>
+        <li>펄스는 소리가 아니라 <b>오디오 시계</b>를 따라가므로 박자에서 밀리지 않습니다.
+            음악을 꺼도 같은 BPM 으로 계속 뛰고, <b>연출 끄기(F)</b> 를 하면 함께 멈춥니다</li>
+      </ul>
       <h3>v1.13.0 <em>배경음악</em></h3>
       <ul>
         <li><b>BGM 이 생겼습니다.</b> 음악 파일이 아니라 효과음처럼 <b>코드로 합성</b>합니다</li>
@@ -1071,32 +1097,32 @@ function ac(){
   return AC;
 }
 /* ============================ BGM ============================
-   파일을 받아 쓰지 않고 코드로 만듭니다. 저작권·용량 문제가 없고,
-   무엇보다 **게임 상태에 따라 편성이 바뀝니다.**
+   파일이 아니라 코드로 만드는 음악입니다. 저작권·용량 문제가 없고,
+   **게임 상태에 따라 편성이 바뀌며** 박자를 화면에도 넘겨줍니다.
 
-   구성: 베이스(톱니) + 아르페지오(삼각) + 하이햇(노이즈) + 패드.
-   진행은 Am - F - C - G 네 마디 반복이고, 한 마디는 16분음표 16개입니다.
+   138 BPM, Am - F - C - G 네 마디. 한 마디 = 16분음표 16개.
 
    강도(intensity)
-     0  기본        — 베이스 + 성긴 아르페지오
-     1  콤보 3 이상 — 아르페지오가 촘촘해지고 옥타브가 더해짐
-     2  피버        — 킥이 들어오고 더 밝아짐
-   남은 시간이 10초 아래면 낮은 긴장음이 깔립니다. */
-const BPM = 112, STEP16 = 60/BPM/4;      // 16분음표 길이(초)
+     -1  홈        — 패드 + 성긴 베이스 (잔잔하게)
+      0  기본      — 8분 베이스 + 킥 + 하이햇
+      1  콤보 3+   — 아르페지오 촘촘 + 클랩
+      2  콤보 6+   — 옥타브 + 리드 리프
+      3  피버      — 16분 아르페지오 + 매 박 킥 */
+const BPM = 138, STEP16 = 60/BPM/4;
 const PROG = [                            // Am - F - C - G
-  { bass:110.00, chord:[220.00, 261.63, 329.63] },
-  { bass: 87.31, chord:[174.61, 220.00, 261.63] },
-  { bass:130.81, chord:[261.63, 329.63, 392.00] },
-  { bass: 98.00, chord:[196.00, 246.94, 293.66] }
+  { bass:110.00, chord:[220.00, 261.63, 329.63], lead:[440.00, 523.25, 659.25] },
+  { bass: 87.31, chord:[174.61, 220.00, 261.63], lead:[349.23, 440.00, 523.25] },
+  { bass:130.81, chord:[261.63, 329.63, 392.00], lead:[523.25, 659.25, 783.99] },
+  { bass: 98.00, chord:[196.00, 246.94, 293.66], lead:[392.00, 493.88, 587.33] }
 ];
 let musicOn = (()=>{ try{ return localStorage.getItem(MUSIC_KEY) !== '0'; }catch(e){ return true; } })();
-let MUSIC=null, mTimer=null, mStep=0, mNext=0;
+let MUSIC=null, mTimer=null, mStep=0, mNext=0, mScene='play';
 
 function musicBus(){
   if(!MUSIC){
     const c = ac();
     MUSIC = c.createGain(); MUSIC.gain.value = 0;
-    const lp = c.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=3200;
+    const lp = c.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=4200;
     MUSIC.connect(lp); lp.connect(c.destination);
   }
   return MUSIC;
@@ -1106,59 +1132,109 @@ function mVoice(freq, at, dur, type, vol){
   const o = c.createOscillator(), g = c.createGain();
   o.type = type; o.frequency.setValueAtTime(freq, t);
   g.gain.setValueAtTime(0.0001, t);
-  g.gain.exponentialRampToValueAtTime(Math.max(0.0002, vol), t + 0.012);
+  g.gain.exponentialRampToValueAtTime(Math.max(0.0002, vol), t + 0.010);
   g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
   o.connect(g); g.connect(musicBus());
   o.start(t); o.stop(t + dur + 0.03);
 }
-function mHat(at, vol){
-  const c = ac(), t = c.currentTime + at, dur = 0.035;
+function mNoise(at, dur, hz, vol){
+  const c = ac(), t = c.currentTime + at;
   const len = Math.max(1, Math.floor(c.sampleRate*dur));
   const buf = c.createBuffer(1, len, c.sampleRate), ch = buf.getChannelData(0);
-  for(let i=0;i<len;i++) ch[i] = (Math.random()*2-1) * (1 - i/len);
+  for(let i2=0;i2<len;i2++) ch[i2] = (Math.random()*2-1) * (1 - i2/len);
   const src = c.createBufferSource(); src.buffer = buf;
-  const hp = c.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=7000;
+  const f = c.createBiquadFilter(); f.type='highpass'; f.frequency.value=hz;
   const g = c.createGain(); g.gain.value = vol;
-  src.connect(hp); hp.connect(g); g.connect(musicBus());
+  src.connect(f); f.connect(g); g.connect(musicBus());
   src.start(t);
 }
-/* 한 스텝(16분음표) 분량을 미리 예약합니다 */
+function mKick(at){
+  const c = ac(), t = c.currentTime + at;
+  const o = c.createOscillator(), g = c.createGain();
+  o.type='sine'; o.frequency.setValueAtTime(150, t);
+  o.frequency.exponentialRampToValueAtTime(46, t+0.10);
+  g.gain.setValueAtTime(0.075, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t+0.17);
+  o.connect(g); g.connect(musicBus()); o.start(t); o.stop(t+0.2);
+}
+
+/* 한 스텝(16분음표)씩 미리 예약합니다 */
 function mTick(){
   const c = ac();
   while(mNext < c.currentTime + 0.35){
     const at   = Math.max(0, mNext - c.currentTime);
     const step = mStep % 16, bar = Math.floor(mStep/16) % 4;
     const P    = PROG[bar];
-    const fever = S.phase==='fever';
-    const inten = fever ? 2 : (S.combo>=3 ? 1 : 0);
-    const tense = !fever && poolLeft() <= 10000 && S.phase!=='over';
+    const home = mScene === 'home';
+    const fever = S.phase === 'fever';
+    const inten = home ? -1
+                : fever ? 3
+                : S.combo>=6 ? 2 : S.combo>=3 ? 1 : 0;
+    const tense = !home && !fever && poolLeft() <= 10000 && S.phase!=='over';
 
-    if(step % 4 === 0) mVoice(P.bass, at, 0.42, 'sawtooth', 0.030);      // 베이스
-    if(step === 0)     mVoice(P.chord[0]/2, at, 1.9, 'sine', 0.018);     // 패드
-    const every = inten>=2 ? 1 : inten>=1 ? 2 : 4;                        // 아르페지오 밀도
-    if(step % every === 0){
-      const n = P.chord[(mStep/every|0) % P.chord.length];
-      mVoice(n, at, 0.16, 'triangle', inten>=2 ? 0.026 : 0.020);
-      if(inten>=1 && step%4===0) mVoice(n*2, at, 0.12, 'triangle', 0.012);
+    if(step === 0) mVoice(P.chord[0]/2, at, home?2.4:1.6, 'sine', home?0.024:0.016);   // 패드
+
+    if(home){                                   // ── 홈: 잔잔하게 ──
+      if(step % 8 === 0) mVoice(P.bass, at, 0.7, 'triangle', 0.026);
+      if(step % 4 === 2) mVoice(P.chord[(mStep/4|0) % 3], at, 0.34, 'sine', 0.020);
+    } else {                                    // ── 인게임 ──
+      if(step % 2 === 0) mVoice(P.bass, at, 0.16, 'sawtooth', 0.034);                  // 8분 베이스
+      if(step % 8 === 0 || (inten>=2 && step % 4 === 0)) mKick(at);                     // 킥
+      if(step % 8 === 4) mNoise(at, 0.09, 1200, 0.030);                                 // 클랩(2·4박)
+      const every = inten>=3 ? 1 : inten>=1 ? 2 : 4;
+      if(step % every === 0){
+        const n = P.chord[(mStep/every|0) % 3];
+        mVoice(n, at, 0.14, 'square', inten>=3 ? 0.020 : 0.016);
+        if(inten>=2) mVoice(n*2, at, 0.10, 'triangle', 0.011);
+      }
+      if(step % 2 === 1) mNoise(at, 0.030, 8000, inten>=1 ? 0.020 : 0.013);             // 하이햇
+      if(inten>=2 && step % 16 === 12)                                                  // 리드 리프
+        P.lead.forEach((f,k2)=> mVoice(f, at + k2*STEP16, 0.13, 'sawtooth', 0.016));
+      if(tense && step % 8 === 0) mVoice(58.27, at, 0.42, 'sawtooth', 0.024);
     }
-    if(inten>=1 && step % 2 === 1) mHat(at, inten>=2 ? 0.020 : 0.012);   // 하이햇
-    if(inten>=2 && step % 8 === 0) mVoice(55, at, 0.16, 'sine', 0.045);  // 킥
-    if(tense && step % 8 === 0)    mVoice(58.27, at, 0.5, 'sawtooth', 0.022);
 
+    if(step % 4 === 0) beatAt(at, step === 0);   // 박자를 화면에 넘깁니다
     mNext += STEP16; mStep++;
   }
 }
-function startMusic(){
-  if(!musicOn || muted) return;
+
+/* ── 박자 동기 UI 펄스 ──
+   음악이 켜져 있으면 **오디오 시계**로 예약합니다. 소리와 같은 시계를 쓰므로
+   화면이 박자에서 밀리지 않습니다. 음악을 꺼 두는 사람도 있으니, 그때는
+   같은 BPM 의 단순 타이머로 대신 뛰게 합니다. */
+function beatAt(at, downbeat){
+  if(!fxOn) return;
+  setTimeout(()=>{
+    const b = document.body;
+    b.classList.remove('beat','beatDown');
+    void b.offsetWidth;                        // 애니메이션 재시작
+    b.classList.add(downbeat ? 'beatDown' : 'beat');
+  }, Math.max(0, at*1000));
+}
+let bTimer=null, bCount=0;
+function syncBeatSource(){
+  const fromAudio = !!mTimer;                  // 음악 스케줄러가 박자를 이미 내보내는 중
+  clearInterval(bTimer); bTimer=null;
+  if(fromAudio) return;
+  bCount = 0;
+  bTimer = setInterval(()=>beatAt(0, (bCount++ % 4) === 0), STEP16*4*1000);
+}
+
+function startMusic(scene){
+  if(scene) mScene = scene;
+  if(!musicOn || muted){ syncBeatSource(); return; }
   try{
     const c = ac(); c.resume();
-    musicBus().gain.cancelScheduledValues(c.currentTime);
-    musicBus().gain.setValueAtTime(0.0001, c.currentTime);
-    musicBus().gain.exponentialRampToValueAtTime(0.9, c.currentTime + 1.2);
-    if(mTimer) return;
-    mStep = 0; mNext = c.currentTime + 0.06;
-    mTimer = setInterval(mTick, 60);
+    const g = musicBus().gain;
+    g.cancelScheduledValues(c.currentTime);
+    g.setValueAtTime(Math.max(0.0001, g.value), c.currentTime);
+    g.exponentialRampToValueAtTime(mScene==='home' ? 0.72 : 0.95, c.currentTime + 1.0);
+    if(!mTimer){
+      mStep = 0; mNext = c.currentTime + 0.06;
+      mTimer = setInterval(mTick, 60);
+    }
   }catch(e){}
+  syncBeatSource();
 }
 function stopMusic(fade){
   try{
@@ -1170,6 +1246,8 @@ function stopMusic(fade){
     }
   }catch(e){}
   clearInterval(mTimer); mTimer = null;
+  document.body.classList.remove('beat','beatDown');
+  syncBeatSource();                            // 음악이 멈춰도 박자 펄스는 이어집니다
 }
 function toggleMusic(){
   musicOn = !musicOn;
@@ -1177,11 +1255,21 @@ function toggleMusic(){
   const b=$('btnMusic');
   if(b){ b.setAttribute('aria-pressed', musicOn?'true':'false');
          $('musicLabel').textContent = musicOn?'음악 ON':'음악 OFF'; }
-  if(musicOn && !muted && (S.phase==='ready'||S.phase==='firing'||S.phase==='fever')) startMusic();
+  if(musicOn && !muted) startMusic(document.body.classList.contains('homemode') ? 'home' : 'play');
   else stopMusic(0.25);
   SFX.btn();
   say(musicOn?'배경음악을 켰습니다.':'배경음악을 껐습니다.');
 }
+/* 브라우저는 사용자가 한 번 조작하기 전에는 소리를 못 냅니다.
+   그래서 홈 BGM 은 첫 입력이 들어온 뒤에 시작합니다. */
+let musicPrimed = false;
+function primeMusic(){
+  if(musicPrimed) return;
+  musicPrimed = true;
+  if(document.body.classList.contains('homemode')) startMusic('home');
+}
+addEventListener('pointerdown', primeMusic, {once:false, passive:true});
+addEventListener('keydown', primeMusic, {passive:true});
 
 function tone(o){
   if(muted) return;
@@ -2340,7 +2428,7 @@ function showFlash(big,sub,color){
 
 function gameOver(){
   S.phase='over'; stopTimer(); stopBeam(); clearAim(); dragging=false;
-  stopMusic(1.1);
+  startMusic('home');                 // 결과 화면에서는 잔잔한 홈 편성으로 이어집니다
   S.emitter=null; drawEmitter(); gCur.innerHTML='';
   SFX.gameover();
   const prev = loadBest(), record = S.score > prev;
@@ -2655,7 +2743,7 @@ async function startGame(mode){
                         : MC.freeSeed(Date.now(), Math.random));   // 오프라인 — 등재 없음
   S.rng  = MC.makeRng(S.seed);
   S.log  = []; S.rank = 0; S.startedAt = Date.now();
-  startMusic();
+  startMusic('play');
   S.level=1; S.score=0; S.combo=0; S.cur={r:2,c:2};
   S.timeLeft = MC.TIME_MAX; S.dir='N'; S.regained = 0;
   document.body.classList.remove('homemode','panelopen');
@@ -2693,14 +2781,14 @@ function toggleSound(){
   $('btnSound').setAttribute('aria-pressed', muted?'false':'true');
   $('soundLabel').textContent = muted ? '소리 OFF' : '소리 ON';
   if(muted) stopMusic(0.3);
-  else if(musicOn && (S.phase==='ready'||S.phase==='firing'||S.phase==='fever')) startMusic();
+  else if(musicOn) startMusic(document.body.classList.contains('homemode') ? 'home' : 'play');
   if(!muted){ try{ ac().resume(); }catch(e){} SFX.btn(); }
   say(muted?'소리를 껐습니다.':'소리를 켰습니다.');
 }
 
 /* 홈으로 — 게임 UI 를 전부 감춘 별도 화면입니다 */
 function goHome(){
-  stopTimer(); stopBeam(); stopMusic(0.4);
+  stopTimer(); stopBeam(); startMusic('home');
   S.phase='idle'; S.emitter=null; clearAim(); dragging=false;
   ['screenBoard','screenTut','screenHelp','screenLog','screenPause'].forEach(id=>$(id).classList.add('hide'));
   $('bdResult').classList.add('hide');
@@ -2877,6 +2965,7 @@ $('btnSound').setAttribute('aria-pressed', muted?'false':'true');
 $('soundLabel').textContent = muted ? '소리 OFF' : '소리 ON';
 applyFx();
 document.body.classList.add('homemode');   // 처음에는 깔끔한 홈 화면부터
+syncBeatSource();                          // 소리가 나기 전에도 박자 펄스는 뜁니다
 refreshStartBest();
 updateControls();
 </script>

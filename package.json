@@ -1,6 +1,6 @@
 {
   "name": "mirror-rush",
-  "version": "1.13.0",
+  "version": "1.14.0",
   "private": true,
   "description": "MIRROR RUSH — 거울 방 레이저 퍼즐. 게임과 검증 리더보드를 한 Worker에서 함께 배포합니다.",
   "scripts": {
