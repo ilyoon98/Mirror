@@ -334,6 +334,12 @@
   .range:hover, .tab:hover{box-shadow:0 0 14px rgba(61,240,255,.2)}
 
   /* 켜짐/꺼짐을 색으로 구분 — 라벨 글자만으로는 눈에 안 들어옵니다 */
+  #btnMusic[aria-pressed="true"]{border-color:var(--cyan);color:var(--cyan);
+    background:linear-gradient(180deg,#16283a,#101a2a);box-shadow:0 0 14px rgba(61,240,255,.22)}
+  #btnMusic[aria-pressed="true"] .ico{color:var(--cyan)}
+  #btnMusic[aria-pressed="false"]{border-color:#2a2f4d;color:var(--dim);
+    background:linear-gradient(180deg,#14162a,#0e101f)}
+  #btnMusic[aria-pressed="false"] .ico, #btnMusic[aria-pressed="false"] kbd{color:#4a5178}
   #btnSound[aria-pressed="true"], #btnFx[aria-pressed="true"]{
     border-color:var(--cyan); color:var(--cyan);
     background:linear-gradient(180deg,#16283a,#101a2a);
@@ -570,7 +576,7 @@
       <button class="btn ghost tiny" id="btnHomeHelp" type="button">도움말</button>
     </div>
     <p class="hintrow homefoot">키보드: 방향키 이동 · Q/E 회전 · Space 발사
-      · <b>v1.12.1</b></p>
+      · <b>v1.13.0</b></p>
   </section>
 
   <h1 class="title">
@@ -579,7 +585,7 @@
     <button class="verbtn" id="btnBoard" type="button"
             aria-label="자유 플레이 전체 순위 보기">순위</button>
     <button class="verbtn" id="btnVer" type="button"
-            aria-label="현재 버전 v1.12.1, 업데이트 내역 보기">v1.12.1</button>
+            aria-label="현재 버전 v1.13.0, 업데이트 내역 보기">v1.13.0</button>
   </h1>
 
   <div class="hud">
@@ -667,6 +673,9 @@
     <button class="ctl small" id="btnSound" type="button" aria-pressed="true" aria-label="소리 켜기 또는 끄기, 단축키 M">
       <span class="ico" aria-hidden="true">♪</span><span id="soundLabel" aria-hidden="true">소리 ON</span><kbd aria-hidden="true">M</kbd>
     </button>
+    <button class="ctl small" id="btnMusic" type="button" aria-pressed="true" aria-label="배경음악 켜기 또는 끄기, 단축키 B">
+      <span class="ico" aria-hidden="true">♫</span><span id="musicLabel" aria-hidden="true">음악 ON</span><kbd aria-hidden="true">B</kbd>
+    </button>
     <button class="ctl small" id="btnFx" type="button" aria-pressed="true" aria-label="발사 연출 켜기 또는 끄기, 단축키 F">
       <span class="ico" aria-hidden="true">✦</span><span id="fxLabel" aria-hidden="true">연출 ON</span><kbd aria-hidden="true">F</kbd>
     </button>
@@ -727,6 +736,13 @@
   <div class="screen hide" id="screenLog">
     <h2>업데이트 내역</h2>
     <div class="loglist">
+      <h3>v1.13.0 <em>배경음악</em></h3>
+      <ul>
+        <li><b>BGM 이 생겼습니다.</b> 음악 파일이 아니라 효과음처럼 <b>코드로 합성</b>합니다</li>
+        <li><b>상황에 따라 편성이 바뀝니다</b> — 콤보 3부터 아르페지오가 촘촘해지고,
+            피버에는 킥이 들어오며, 시간이 10초 아래로 떨어지면 긴장음이 깔립니다</li>
+        <li><b>B</b> 키 또는 하단 ♫ 버튼으로 끄고 켤 수 있습니다. 소리를 끄면 음악도 함께 멈춥니다</li>
+      </ul>
       <h3>v1.12.1 <em>이펙트 위치 수정</em></h3>
       <ul>
         <li><b>이펙트가 엉뚱한 자리에서 터지던 문제를 고쳤습니다.</b>
@@ -949,6 +965,7 @@ const cx = c => PAD + c * STEP + CELL/2;
 const cy = r => PAD + r * STEP + CELL/2;
 const BEST_KEY  = 'mirrorrush.best';
 const MUTE_KEY  = 'mirrorrush.mute';
+const MUSIC_KEY = 'mirrorrush.music';   // BGM on/off
 const FX_KEY    = 'mirrorrush.fx';
 const NICK_KEY  = 'mirrorrush.nick';
 const DAILY_KEY = 'mirrorrush.daily';   // {seed, rank, level}
@@ -1034,7 +1051,11 @@ function applyFx(){
 function toggleFx(){
   fxOn=!fxOn;
   try{ localStorage.setItem(FX_KEY, fxOn?'1':'0'); }catch(e){}
-  applyFx(); SFX.btn();
+  if($('btnMusic')){
+  $('btnMusic').setAttribute('aria-pressed', musicOn?'true':'false');
+  $('musicLabel').textContent = musicOn?'음악 ON':'음악 OFF';
+}
+applyFx(); SFX.btn();
   say(fxOn?'발사 연출을 켰습니다.':'발사 연출을 껐습니다.');
 }
 
@@ -1049,6 +1070,119 @@ function ac(){
   }
   return AC;
 }
+/* ============================ BGM ============================
+   파일을 받아 쓰지 않고 코드로 만듭니다. 저작권·용량 문제가 없고,
+   무엇보다 **게임 상태에 따라 편성이 바뀝니다.**
+
+   구성: 베이스(톱니) + 아르페지오(삼각) + 하이햇(노이즈) + 패드.
+   진행은 Am - F - C - G 네 마디 반복이고, 한 마디는 16분음표 16개입니다.
+
+   강도(intensity)
+     0  기본        — 베이스 + 성긴 아르페지오
+     1  콤보 3 이상 — 아르페지오가 촘촘해지고 옥타브가 더해짐
+     2  피버        — 킥이 들어오고 더 밝아짐
+   남은 시간이 10초 아래면 낮은 긴장음이 깔립니다. */
+const BPM = 112, STEP16 = 60/BPM/4;      // 16분음표 길이(초)
+const PROG = [                            // Am - F - C - G
+  { bass:110.00, chord:[220.00, 261.63, 329.63] },
+  { bass: 87.31, chord:[174.61, 220.00, 261.63] },
+  { bass:130.81, chord:[261.63, 329.63, 392.00] },
+  { bass: 98.00, chord:[196.00, 246.94, 293.66] }
+];
+let musicOn = (()=>{ try{ return localStorage.getItem(MUSIC_KEY) !== '0'; }catch(e){ return true; } })();
+let MUSIC=null, mTimer=null, mStep=0, mNext=0;
+
+function musicBus(){
+  if(!MUSIC){
+    const c = ac();
+    MUSIC = c.createGain(); MUSIC.gain.value = 0;
+    const lp = c.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=3200;
+    MUSIC.connect(lp); lp.connect(c.destination);
+  }
+  return MUSIC;
+}
+function mVoice(freq, at, dur, type, vol){
+  const c = ac(), t = c.currentTime + at;
+  const o = c.createOscillator(), g = c.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, t);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(Math.max(0.0002, vol), t + 0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(musicBus());
+  o.start(t); o.stop(t + dur + 0.03);
+}
+function mHat(at, vol){
+  const c = ac(), t = c.currentTime + at, dur = 0.035;
+  const len = Math.max(1, Math.floor(c.sampleRate*dur));
+  const buf = c.createBuffer(1, len, c.sampleRate), ch = buf.getChannelData(0);
+  for(let i=0;i<len;i++) ch[i] = (Math.random()*2-1) * (1 - i/len);
+  const src = c.createBufferSource(); src.buffer = buf;
+  const hp = c.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=7000;
+  const g = c.createGain(); g.gain.value = vol;
+  src.connect(hp); hp.connect(g); g.connect(musicBus());
+  src.start(t);
+}
+/* 한 스텝(16분음표) 분량을 미리 예약합니다 */
+function mTick(){
+  const c = ac();
+  while(mNext < c.currentTime + 0.35){
+    const at   = Math.max(0, mNext - c.currentTime);
+    const step = mStep % 16, bar = Math.floor(mStep/16) % 4;
+    const P    = PROG[bar];
+    const fever = S.phase==='fever';
+    const inten = fever ? 2 : (S.combo>=3 ? 1 : 0);
+    const tense = !fever && poolLeft() <= 10000 && S.phase!=='over';
+
+    if(step % 4 === 0) mVoice(P.bass, at, 0.42, 'sawtooth', 0.030);      // 베이스
+    if(step === 0)     mVoice(P.chord[0]/2, at, 1.9, 'sine', 0.018);     // 패드
+    const every = inten>=2 ? 1 : inten>=1 ? 2 : 4;                        // 아르페지오 밀도
+    if(step % every === 0){
+      const n = P.chord[(mStep/every|0) % P.chord.length];
+      mVoice(n, at, 0.16, 'triangle', inten>=2 ? 0.026 : 0.020);
+      if(inten>=1 && step%4===0) mVoice(n*2, at, 0.12, 'triangle', 0.012);
+    }
+    if(inten>=1 && step % 2 === 1) mHat(at, inten>=2 ? 0.020 : 0.012);   // 하이햇
+    if(inten>=2 && step % 8 === 0) mVoice(55, at, 0.16, 'sine', 0.045);  // 킥
+    if(tense && step % 8 === 0)    mVoice(58.27, at, 0.5, 'sawtooth', 0.022);
+
+    mNext += STEP16; mStep++;
+  }
+}
+function startMusic(){
+  if(!musicOn || muted) return;
+  try{
+    const c = ac(); c.resume();
+    musicBus().gain.cancelScheduledValues(c.currentTime);
+    musicBus().gain.setValueAtTime(0.0001, c.currentTime);
+    musicBus().gain.exponentialRampToValueAtTime(0.9, c.currentTime + 1.2);
+    if(mTimer) return;
+    mStep = 0; mNext = c.currentTime + 0.06;
+    mTimer = setInterval(mTick, 60);
+  }catch(e){}
+}
+function stopMusic(fade){
+  try{
+    if(MUSIC){
+      const c = ac(), t = c.currentTime;
+      MUSIC.gain.cancelScheduledValues(t);
+      MUSIC.gain.setValueAtTime(Math.max(0.0001, MUSIC.gain.value), t);
+      MUSIC.gain.exponentialRampToValueAtTime(0.0001, t + (fade==null?0.5:fade));
+    }
+  }catch(e){}
+  clearInterval(mTimer); mTimer = null;
+}
+function toggleMusic(){
+  musicOn = !musicOn;
+  try{ localStorage.setItem(MUSIC_KEY, musicOn?'1':'0'); }catch(e){}
+  const b=$('btnMusic');
+  if(b){ b.setAttribute('aria-pressed', musicOn?'true':'false');
+         $('musicLabel').textContent = musicOn?'음악 ON':'음악 OFF'; }
+  if(musicOn && !muted && (S.phase==='ready'||S.phase==='firing'||S.phase==='fever')) startMusic();
+  else stopMusic(0.25);
+  SFX.btn();
+  say(musicOn?'배경음악을 켰습니다.':'배경음악을 껐습니다.');
+}
+
 function tone(o){
   if(muted) return;
   try{
@@ -2206,6 +2340,7 @@ function showFlash(big,sub,color){
 
 function gameOver(){
   S.phase='over'; stopTimer(); stopBeam(); clearAim(); dragging=false;
+  stopMusic(1.1);
   S.emitter=null; drawEmitter(); gCur.innerHTML='';
   SFX.gameover();
   const prev = loadBest(), record = S.score > prev;
@@ -2520,6 +2655,7 @@ async function startGame(mode){
                         : MC.freeSeed(Date.now(), Math.random));   // 오프라인 — 등재 없음
   S.rng  = MC.makeRng(S.seed);
   S.log  = []; S.rank = 0; S.startedAt = Date.now();
+  startMusic();
   S.level=1; S.score=0; S.combo=0; S.cur={r:2,c:2};
   S.timeLeft = MC.TIME_MAX; S.dir='N'; S.regained = 0;
   document.body.classList.remove('homemode','panelopen');
@@ -2556,13 +2692,15 @@ function toggleSound(){
   try{ localStorage.setItem(MUTE_KEY, muted?'1':'0'); }catch(e){}
   $('btnSound').setAttribute('aria-pressed', muted?'false':'true');
   $('soundLabel').textContent = muted ? '소리 OFF' : '소리 ON';
+  if(muted) stopMusic(0.3);
+  else if(musicOn && (S.phase==='ready'||S.phase==='firing'||S.phase==='fever')) startMusic();
   if(!muted){ try{ ac().resume(); }catch(e){} SFX.btn(); }
   say(muted?'소리를 껐습니다.':'소리를 켰습니다.');
 }
 
 /* 홈으로 — 게임 UI 를 전부 감춘 별도 화면입니다 */
 function goHome(){
-  stopTimer(); stopBeam();
+  stopTimer(); stopBeam(); stopMusic(0.4);
   S.phase='idle'; S.emitter=null; clearAim(); dragging=false;
   ['screenBoard','screenTut','screenHelp','screenLog','screenPause'].forEach(id=>$(id).classList.add('hide'));
   $('bdResult').classList.add('hide');
@@ -2677,6 +2815,7 @@ $('btnFire').onclick      = ()=> tryFire();
 $('btnFlip').onclick      = ()=> doFlip();
 $('btnPause').onclick     = ()=> togglePause();
 $('btnSound').onclick     = ()=> toggleSound();
+$('btnMusic').onclick     = ()=> toggleMusic();
 $('btnFx').onclick        = ()=> toggleFx();
 $('btnHelp').onclick      = ()=> openHelp();
 $('btnHelpClose').onclick = ()=> closeHelp();
@@ -2702,6 +2841,7 @@ addEventListener('keydown', e=>{
   if(k==='f'){ e.preventDefault(); toggleFx(); return; }
   if(k==='g'){ e.preventDefault(); doFlip(); return; }
   if(k==='h'){ e.preventDefault(); openHelp(); return; }
+  if(k==='b'){ e.preventDefault(); toggleMusic(); return; }
   if(k==='p'){ e.preventDefault(); togglePause(); return; }
 
   if(e.code==='Space'||e.key==='Enter'){
