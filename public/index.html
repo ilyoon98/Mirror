@@ -619,7 +619,7 @@
       <button class="btn ghost tiny" id="btnHomeHelp" type="button">도움말</button>
     </div>
     <p class="hintrow homefoot">키보드: 방향키 이동 · Q/E 회전 · Space 발사
-      · <b>v1.15.0</b></p>
+      · <b>v1.15.1</b></p>
   </section>
 
   <h1 class="title">
@@ -628,7 +628,7 @@
     <button class="verbtn" id="btnBoard" type="button"
             aria-label="자유 플레이 전체 순위 보기">순위</button>
     <button class="verbtn" id="btnVer" type="button"
-            aria-label="현재 버전 v1.15.0, 업데이트 내역 보기">v1.15.0</button>
+            aria-label="현재 버전 v1.15.1, 업데이트 내역 보기">v1.15.1</button>
   </h1>
 
   <div class="hud">
@@ -779,11 +779,17 @@
   <div class="screen hide" id="screenLog">
     <h2>업데이트 내역</h2>
     <div class="loglist">
+      <h3>v1.15.1 <em>피버 타일 펄스 제거</em></h3>
+      <ul>
+        <li><b>피버 레인의 타일 판이 더는 박자에 뛰지 않습니다.</b>
+            빠르게 두드리는 구간인데 눌러야 할 판까지 들썩이니 정신이 없었습니다.
+            타일 위의 <b>거울은 그대로 뜁니다</b></li>
+      </ul>
       <h3>v1.15.0 <em>피버 전용 BGM · 보드까지 박자 펄스</em></h3>
       <ul>
         <li><b>피버에 아예 다른 곡이 깔립니다.</b> 178 BPM, Am-Am-F-E7 진행에
             16분음표로 구르는 베이스와 리드. 진입 순간 크래시 한 방이 터집니다</li>
-        <li><b>거울 · 프리즘 · 단방향 · EXIT · 피버 타일이 박자마다 뜁니다.</b>
+        <li><b>거울 · 프리즘 · 단방향 · EXIT 가 박자마다 뜁니다.</b>
             평소엔 7%, 피버에는 26%까지 부풀고 보드도 함께 흔들립니다</li>
         <li><b>레이저 선단도 박자에 맞춰 부풉니다</b> — 반지름 8 → 11.9.
             좌표가 매 프레임 바뀌는 물건이라 CSS 가 아니라 계산으로 처리했습니다</li>
@@ -2192,8 +2198,10 @@ function drawFeverRow(){
   for(let i=0;i<5;i++){
     const x=ftx(i), m=S.feverRow[i];
     const tcx = x+FTW/2, tcy = FROWY+FTH/2;
-    gCells.appendChild(beatable(mk('rect',{x,y:FROWY,width:FTW,height:FTH,rx:12,
-      class:'ftile'+(m?' blocked':''),'data-col':i}), tcx, tcy));
+    // 타일 판 자체는 박자에 안 뜁니다 — 피버는 이걸 빠르게 두드리는 구간이라
+    // 눌러야 할 판이 같이 들썩이면 정신이 없습니다. 거울만 뜁니다.
+    gCells.appendChild(mk('rect',{x,y:FROWY,width:FTW,height:FTH,rx:12,
+      class:'ftile'+(m?' blocked':''),'data-col':i}));
     if(m){
       const p=20;
       const a = m==='/' ? [x+p, FROWY+FTH-p, x+FTW-p, FROWY+p]
